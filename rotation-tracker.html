@@ -1,1 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifeguard Rotation Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #050E1B; font-family: 'DM Sans', sans-serif; }
+    #root { min-height: 100vh; }
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#050E1B;}
+        input:focus{border-color:#00C2E0!important;}
+        select:focus{border-color:#00C2E0!important;}
+        ::-webkit-scrollbar{width:5px;height:5px;}
+        ::-webkit-scrollbar-track{background:#0C1B2E;}
+        ::-webkit-scrollbar-thumb{background:#1B3A6B;border-radius:3px;}
+        .trh:hover td{background:rgba(0,194,224,.04)!important;}
+        .trconflict td{background:rgba(255,80,0,0.07)!important;}
+        .trchair3 td{background:rgba(129,140,248,0.05)!important;}
+        .trboom td{background:rgba(232,121,249,0.05)!important;}
+        .trboom:hover td{background:rgba(232,121,249,0.10)!important;}
+        .trrest td{background:#080604!important;}
+        select option{background:#0C1B2E;}
+        .tog{background:none;border:1px solid #1B3A6B;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;padding:7px 16px;transition:all .2s;}
+  </style>
+  <style>
 
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#050E1B;}
+        input:focus{border-color:#16A34A!important;}
+        select:focus{border-color:#16A34A!important;}
+        ::-webkit-scrollbar{width:5px;height:5px;}
+        ::-webkit-scrollbar-track{background:#071A0E;}
+        ::-webkit-scrollbar-thumb{background:#14532D;border-radius:3px;}
+        .trh:hover td{background:rgba(0,194,224,.04)!important;}
+        .trconflict td{background:rgba(255,80,0,0.07)!important;}
+        .trchair3 td{background:rgba(129,140,248,0.05)!important;}
+        .trboom td{background:rgba(232,121,249,0.05)!important;}
+        .trboom:hover td{background:rgba(232,121,249,0.10)!important;}
+        .trrest td{background:#080604!important;}
+        select option{background:#071A0E;}
+        .tog{background:none;border:1px solid #14532D;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;padding:7px 16px;transition:all .2s;}
+      
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/javascript">
+    const { useState, useEffect } = React;
+
+    const storage = {
+      get:    async (k)    => { try { const v=localStorage.getItem(k); return v?{value:v}:null; } catch(e){return null;} },
+      set:    async (k,v)  => { try { localStorage.setItem(k,v); return {key:k,value:v}; } catch(e){return null;} },
+      remove: async (k)    => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch(e){return null;} },
+      list:   async (pfx)  => { try { const ks=Object.keys(localStorage).filter(k=>!pfx||k.startsWith(pfx)); return {keys:ks}; } catch(e){return {keys:[]};} },
+    };
+const TEAM_COLORS = { A: "#00C2E0", B: "#FF6B35", C: "#2ECC71", D: "#F1C40F" };
+const TEAM_DARK = { A: "#002A36", B: "#2E1200", C: "#003318", D: "#2E2700" };
+const BOOM_COLORS = { E: "#E879F9", F: "#F43F5E", G: "#FB923C" };
+const BOOM_DARK = { E: "#2D0040", F: "#3D0010", G: "#3D1500" };
+const TEAMS = ["A", "B", "C", "D"];
+const BOOM_GUARDS = ["E", "F", "G"];
+const HOUR_STATUS = {
+    12: { out: "D", reason: "Not arrived" },
+    13: { out: "D", reason: "Not arrived" },
+    14: { out: "A", reason: "On break" },
+    15: { out: "B", reason: "On break" },
+    16: { out: "C", reason: "On break" },
+    17: { out: "D", reason: "On break" },
+    18: { out: "A", reason: "End of shift" },
+};
+const BREAK_ASSIGN = {
+    1245: { rSlide: "A", rConcession: "B" },
+    1345: { rSlide: "C", rConcession: "A" },
+    1445: { rSlide: "B", rConcession: "D" },
+    1545: { rSlide: "D", rConcession: "C" },
+    1645: { rSlide: "A", rConcession: "B" },
+    1745: { rSlide: "C", rConcession: "D" },
+    1845: { rSlide: "B", rConcession: "C" },
+};
+// Boom mini-rotation by minute-within-cycle
+// :00 -> E on Ch5, F on Mush, G boom-bp
+// :15 -> G on Ch5, E on Mush, F boom-bp
+// :30 -> F on Ch5, G on Mush, E boom-bp
+const BOOM_CYCLE = {
+    0: { ch5: "E", mush: "F", bbp: "G" },
+    15: { ch5: "G", mush: "E", bbp: "F" },
+    30: { ch5: "F", mush: "G", bbp: "E" },
+};
+// Break support from boom guards (1:45 - 4:45 only)
+const BOOM_BREAK_SUPPORT = {
+    1345: { bSlide: "E", bConc: "F", bRest: "G" },
+    1445: { bSlide: "G", bConc: "E", bRest: "F" },
+    1545: { bSlide: "F", bConc: "G", bRest: "E" },
+    1645: { bSlide: "E", bConc: "F", bRest: "G" },
+};
+const ACTIVE_SLOTS = [
+    { h: 12, m: 0, ch1ch4: "A", slDv: "B" },
+    { h: 12, m: 15, ch1ch4: "C", slDv: "A" },
+    { h: 12, m: 30, ch1ch4: "B", slDv: "C" },
+    { h: 13, m: 0, ch1ch4: "A", slDv: "B" },
+    { h: 13, m: 15, ch1ch4: "C", slDv: "A" },
+    { h: 13, m: 30, ch1ch4: "B", slDv: "C" },
+    { h: 14, m: 0, ch1ch4: "D", slDv: "B" },
+    { h: 14, m: 15, ch1ch4: "C", slDv: "D" },
+    { h: 14, m: 30, ch1ch4: "B", slDv: "C" },
+    { h: 15, m: 0, ch1ch4: "D", slDv: "A" },
+    { h: 15, m: 15, ch1ch4: "C", slDv: "D" },
+    { h: 15, m: 30, ch1ch4: "A", slDv: "C" },
+    { h: 16, m: 0, ch1ch4: "D", slDv: "A" },
+    { h: 16, m: 15, ch1ch4: "B", slDv: "D" },
+    { h: 16, m: 30, ch1ch4: "A", slDv: "B" },
+    { h: 17, m: 0, ch1ch4: "C", slDv: "A" },
+    { h: 17, m: 15, ch1ch4: "B", slDv: "C" },
+    { h: 17, m: 30, ch1ch4: "A", slDv: "B" },
+    { h: 18, m: 0, ch1ch4: "C", slDv: "D" },
+    { h: 18, m: 15, ch1ch4: "B", slDv: "C" },
+    { h: 18, m: 30, ch1ch4: "D", slDv: "B" },
+];
+const REST_TIMES = [
+    { h: 12, m: 45, closing: false },
+    { h: 13, m: 45, closing: false },
+    { h: 14, m: 45, closing: false },
+    { h: 15, m: 45, closing: false },
+    { h: 16, m: 45, closing: false },
+    { h: 17, m: 45, closing: false },
+    { h: 18, m: 45, closing: true },
+];
+const ACTIVE_KEYS = ACTIVE_SLOTS.map(s => s.h * 100 + s.m);
+function boomActive(h) { return h >= 13 && h < 17; }
+const SCHEDULE = (() => {
+    const rows = [];
+    for (const s of ACTIVE_SLOTS) {
+        const status = HOUR_STATUS[s.h];
+        const bullpen = TEAMS.find(t => t !== s.ch1ch4 && t !== s.slDv && t !== (status && status.out)) || null;
+        const chair5Conflict = s.m === 0 || s.m === 15;
+        const boom = boomActive(s.h) ? BOOM_CYCLE[s.m] : null;
+        rows.push({ h: s.h, m: s.m, type: "active", ch1ch4: s.ch1ch4, slDv: s.slDv,
+            bullpen, outTeam: status && status.out, outReason: status && status.reason,
+            chair5Conflict, boom });
+    }
+    for (const r of REST_TIMES) {
+        const key = r.h * 100 + r.m;
+        const ba = BREAK_ASSIGN[key] || {};
+        const bs = BOOM_BREAK_SUPPORT[key] || null;
+        rows.push({ h: r.h, m: r.m, type: "rest", closing: r.closing,
+            rSlide: ba.rSlide || null, rConcession: ba.rConcession || null, boomSupport: bs });
+    }
+    rows.sort((a, b) => (a.h * 60 + a.m) - (b.h * 60 + b.m));
+    return rows;
+})();
+function computeMinutes(upToMin, slotModes) {
+    if (upToMin === undefined)
+        upToMin = Infinity;
+    if (slotModes === undefined)
+        slotModes = {};
+    const mk = () => ({ ch1: 0, ch4: 0, rotSlide: 0, divBd: 0, brkSlide: 0, conc: 0, ch5: 0 });
+    const bm = () => ({ ch5: 0, mush: 0, bbp: 0, brkSlide: 0, conc: 0, rest: 0 });
+    const s = { A: mk(), B: mk(), C: mk(), D: mk() };
+    const b = { E: bm(), F: bm(), G: bm() };
+    for (const slot of SCHEDULE) {
+        const sm = slot.h * 60 + slot.m;
+        if (sm > upToMin)
+            break;
+        if (slot.type === "active") {
+            const slotKey = slot.h * 100 + slot.m;
+            const mode = slotModes[slotKey] || "normal";
+            const boomData = mode === "boom" ? BOOM_CYCLE[slot.m] : null;
+            s[slot.ch1ch4].ch4 += 15;
+            if (mode !== "chair3")
+                s[slot.ch1ch4].ch1 += 15;
+            s[slot.slDv].rotSlide += 15;
+            s[slot.slDv].divBd += 15;
+            if (mode === "chair5" && slot.bullpen)
+                s[slot.bullpen].ch5 += 15;
+            if (boomData) {
+                b[boomData.ch5].ch5 += 15;
+                b[boomData.mush].mush += 15;
+                b[boomData.bbp].bbp += 15;
+            }
+        }
+        else {
+            if (slot.rSlide)
+                s[slot.rSlide].brkSlide += 15;
+            if (slot.rConcession)
+                s[slot.rConcession].conc += 15;
+            if (slot.boomSupport) {
+                b[slot.boomSupport.bSlide].brkSlide += 15;
+                b[slot.boomSupport.bConc].conc += 15;
+                b[slot.boomSupport.bRest].rest += 15;
+            }
+        }
+    }
+    const out = {};
+    for (const t of TEAMS) {
+        const x = s[t];
+        out[t] = Object.assign(Object.assign({}, x), { totalChair: x.ch1 + x.ch4, totalActive: x.ch1 + x.ch4 + x.rotSlide + x.divBd + x.brkSlide + x.conc + x.ch5 });
+    }
+    for (const g of BOOM_GUARDS) {
+        const x = b[g];
+        out[g] = Object.assign(Object.assign({}, x), { totalActive: x.ch5 + x.mush + x.bbp + x.brkSlide + x.conc });
+    }
+    return out;
+}
+function fmt(h, m) {
+    return (h > 12 ? h - 12 : h) + ":" + (String(m).padStart(2, "0")) + " " + (h >= 12 ? "PM" : "AM");
+}
+const TIME_OPTIONS = (() => {
+    const o = [];
+    for (let h = 12; h <= 18; h++)
+        for (let m = 0; m < 60; m += 15) {
+            if (h === 18 && m > 45)
+                break;
+            o.push({ val: h * 60 + m, label: fmt(h, m) });
+        }
+    return o;
+})();
+const DEFAULT_GUARDS = Object.fromEntries(TEAMS.map(t => [t, [{ name: "", start: 720, end: 1125 }, { name: "", start: 720, end: 1125 }]]));
+const DEFAULT_BOOM = { E: { name: "", start: 780, end: 1020 }, F: { name: "", start: 780, end: 1020 }, G: { name: "", start: 780, end: 1020 } };
+// ---- small components ----
+function TeamBadge({ team, size, boom }) {
+    const sz = size || 36;
+    const bg = boom ? BOOM_COLORS[team] : TEAM_COLORS[team];
+    return React.createElement("div", { style: { background: bg, color: "#000", width: sz, height: sz, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Bebas Neue'", fontSize: sz * 0.55, fontWeight: 900 } }, team);
+}
+function TeamChip({ team, boom }) {
+    const bg = boom ? BOOM_DARK[team] : TEAM_DARK[team];
+    const col = boom ? BOOM_COLORS[team] : TEAM_COLORS[team];
+    return React.createElement("span", { style: { background: bg, border: "1px solid " + col + "77", color: col, borderRadius: "5px", padding: "2px 9px", fontFamily: "'Bebas Neue'", fontSize: "15px", letterSpacing: "1px", display: "inline-block", lineHeight: 1.4 } }, team);
+}
+function NowTag() { return React.createElement("span", { style: { marginLeft: "7px", fontSize: "9px", background: "#FFD700", color: "#000", borderRadius: "3px", padding: "1px 5px", letterSpacing: "1px", verticalAlign: "middle" } }, "NOW"); }
+function MinBar({ value, max, color }) {
+    const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px" } },
+        React.createElement("div", { style: { flex: 1, background: "#0D1E35", borderRadius: "4px", height: "6px", overflow: "hidden" } },
+            React.createElement("div", { style: { width: pct + "%", height: "100%", background: color, borderRadius: "4px", transition: "width .4s" } })),
+        React.createElement("span", { style: { fontSize: "13px", fontWeight: 700, color: "#C8E0F0", minWidth: "40px", textAlign: "right" } },
+            value,
+            "m"));
+}
+function ActiveCell({ team, gi, sm, guards }) {
+    const g = guards[team][gi];
+    const active = g.name.trim() && sm >= g.start && sm <= g.end;
+    const hasName = guards[team].some(x => x.name.trim());
+    return React.createElement("td", { style: TD },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
+            React.createElement("span", { style: { background: TEAM_COLORS[team], color: "#000", fontWeight: 900, padding: "1px 8px", borderRadius: "4px", fontSize: "13px", fontFamily: "'Bebas Neue'", letterSpacing: "1px", whiteSpace: "nowrap" } }, team),
+            active ? React.createElement("span", { style: { fontSize: "12px", color: "#8AAFCC" } }, g.name) : hasName && React.createElement("span", { style: { fontSize: "11px", color: "#334455", fontStyle: "italic" } }, "off shift")));
+}
+function ClosedCell() { return React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#080810", color: "#2A3A4A", textAlign: "center", fontSize: "11px", fontStyle: "italic" }) }, "closed"); }
+function BoomGuardCell({ guard, sm, boomGuards }) {
+    const g = boomGuards[guard];
+    const active = g.name.trim() && sm >= g.start && sm <= g.end;
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+        React.createElement("span", { style: { background: BOOM_COLORS[guard], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, guard),
+        active && React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, g.name));
+}
+function BullpenName({ team, gi, sm, guards, dim }) {
+    const g = guards[team][gi];
+    const active = g.name.trim() && sm >= g.start && sm <= g.end;
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", opacity: dim ? 0.5 : 1 } },
+        React.createElement("span", { style: { background: TEAM_COLORS[team], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, team),
+        active && React.createElement("span", { style: { fontSize: "11px", color: dim ? "#445566" : "#8AAFCC" } }, g.name));
+}
+function BreakCell({ team, sm, guards }) {
+    const names = guards[team].filter(g => g.name.trim() && sm >= g.start && sm <= g.end).map(g => g.name);
+    const hasName = guards[team].some(x => x.name.trim());
+    return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
+        React.createElement("span", { style: { background: TEAM_COLORS[team], color: "#000", fontWeight: 900, padding: "1px 8px", borderRadius: "4px", fontSize: "13px", fontFamily: "'Bebas Neue'", letterSpacing: "1px" } }, team),
+        names.length > 0 ? React.createElement("span", { style: { fontSize: "12px", color: "#8AAFCC" } }, names.join(" & ")) : hasName && React.createElement("span", { style: { fontSize: "11px", color: "#334455", fontStyle: "italic" } }, "off shift"));
+}
+function PairDiv() { return React.createElement("td", { style: { width: "4px", background: "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }); }
+const TD = { padding: "8px 12px", borderBottom: "1px solid #0D1E35", fontSize: "13px" };
+const TH0 = { padding: "10px 12px", background: "#0C1B2E", color: "#00D8FF", fontSize: "10px", letterSpacing: "2px", textAlign: "left", borderBottom: "2px solid #00B4D8", fontFamily: "'DM Sans',sans-serif", fontWeight: 700, whiteSpace: "nowrap" };
+function SlotModeBtn({ slotKey, mode, onChange }) {
+    return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } },
+        React.createElement("button", { onClick: () => onChange(slotKey, "chair5"), style: { cursor: "pointer", border: "2px solid " + (mode === "chair5" ? "#F97316" : "#2A3A50"), borderRadius: "5px", padding: "5px 10px", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", whiteSpace: "nowrap", background: mode === "chair5" ? "#F97316" : "#0D1E35", color: mode === "chair5" ? "#000" : "#F97316" } }, mode === "chair5" ? "5 CHAIRS ON" : "+ CHAIR 5"),
+        React.createElement("button", { onClick: () => onChange(slotKey, "chair3"), style: { cursor: "pointer", border: "2px solid " + (mode === "chair3" ? "#818CF8" : "#2A3A50"), borderRadius: "5px", padding: "5px 10px", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", whiteSpace: "nowrap", background: mode === "chair3" ? "#818CF8" : "#0D1E35", color: mode === "chair3" ? "#000" : "#818CF8" } }, mode === "chair3" ? "3 CHAIRS ON" : "- CHAIR 1"),
+        React.createElement("button", { onClick: () => onChange(slotKey, "boom"), style: { cursor: "pointer", border: "2px solid " + (mode === "boom" ? "#E879F9" : "#2A3A50"), borderRadius: "5px", padding: "5px 10px", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", whiteSpace: "nowrap", background: mode === "boom" ? "#E879F9" : "#0D1E35", color: mode === "boom" ? "#000" : "#E879F9" } }, mode === "boom" ? "6 CHAIRS ON" : "+ BOOM PAIR"));
+}
+function App() {
+    const [tab, setTab] = useState("schedule");
+    const [guards, setGuards] = useState(DEFAULT_GUARDS);
+    const [boomGuards, setBoomGuards] = useState(DEFAULT_BOOM);
+    const [now, setNow] = useState(new Date());
+    const [minsView, setMinsView] = useState("fullday");
+    const [slotModes, setSlotModes] = useState({});
+    const [plannerInfo, setPlannerInfo] = useState(null); // {pushedAt, date, hasSplit}
+    // Load today's guard data from planner on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const today = new Date().toISOString().slice(0, 10);
+                const r = await storage.get("tracker-day-" + today);
+                if (r) {
+                    const d = JSON.parse(r.value);
+                    if (d.guards) {
+                        setGuards(prev => {
+                            const next = Object.assign({}, prev);
+                            Object.entries(d.guards).forEach(([team, segs]) => {
+                                if (next[team]) {
+                                    next[team] = next[team].map((g, i) => {
+                                        const seg = segs[i];
+                                        if (!seg)
+                                            return g;
+                                        // primary segment (first one)
+                                        return { name: (seg[0] && seg[0].name) || "", start: (seg[0] && seg[0].start) || g.start, end: (seg[0] && seg[0].end) || g.end };
+                                    });
+                                }
+                            });
+                            return next;
+                        });
+                    }
+                    if (d.boomGuards) {
+                        setBoomGuards(prev => {
+                            const next = Object.assign({}, prev);
+                            Object.entries(d.boomGuards).forEach(([g, segs]) => {
+                                if (next[g] && segs[0])
+                                    next[g] = { name: segs[0].name || "", start: segs[0].start || next[g].start, end: segs[0].end || next[g].end };
+                            });
+                            return next;
+                        });
+                    }
+                    setPlannerInfo({ pushedAt: d.pushedAt, date: d.date, hasSplit: d.hasSplit });
+                }
+            }
+            catch (e) { }
+        })();
+    }, []);
+    async function reloadFromPlanner() {
+        try {
+            const today = new Date().toISOString().slice(0, 10);
+            const r = await storage.get("tracker-day-" + today);
+            if (r) {
+                const d = JSON.parse(r.value);
+                if (d.guards) {
+                    setGuards(prev => {
+                        const next = Object.assign({}, prev);
+                        Object.entries(d.guards).forEach(([team, segs]) => {
+                            if (next[team])
+                                next[team] = next[team].map((g, i) => { const s = segs[i]; return s ? { name: (s[0] && s[0].name) || "", start: (s[0] && s[0].start) || g.start, end: (s[0] && s[0].end) || g.end } : g; });
+                        });
+                        return next;
+                    });
+                }
+                if (d.boomGuards) {
+                    setBoomGuards(prev => {
+                        const next = Object.assign({}, prev);
+                        Object.entries(d.boomGuards).forEach(([g, segs]) => { if (next[g] && segs[0])
+                            next[g] = { name: segs[0].name || "", start: segs[0].start || next[g].start, end: segs[0].end || next[g].end }; });
+                        return next;
+                    });
+                }
+                setPlannerInfo({ pushedAt: d.pushedAt, date: d.date, hasSplit: d.hasSplit });
+            }
+            else {
+                alert("No planner data found for today.");
+            }
+        }
+        catch (e) {
+            alert("Could not load planner data.");
+        }
+    }
+    useEffect(() => { const t = setInterval(() => setNow(new Date()), 10000); return () => clearInterval(t); }, []);
+    const ch = now.getHours(), cm = Math.floor(now.getMinutes() / 15) * 15;
+    const nowMin = ch * 60 + cm;
+    const isOpen = ch >= 12 && (ch < 18 || (ch === 18 && cm <= 45));
+    const curSlot = SCHEDULE.find(s => s.h === ch && s.m === cm);
+    function setMode(key, targetMode) { setSlotModes(prev => { const cur = prev[key] || "normal"; return Object.assign(Object.assign({}, prev), { [key]: cur === targetMode ? "normal" : targetMode }); }); }
+    function getMode(key) { return slotModes[key] || "normal"; }
+    const chair5Count = ACTIVE_KEYS.filter(k => getMode(k) === "chair5").length;
+    const chair3Count = ACTIVE_KEYS.filter(k => getMode(k) === "chair3").length;
+    const fullDay = computeMinutes(Infinity, slotModes);
+    const soFar = computeMinutes(nowMin, slotModes);
+    const DS = minsView === "sofar" ? soFar : fullDay;
+    const maxActive = Math.max(...TEAMS.map(t => fullDay[t].totalActive), 1);
+    const maxBoom = Math.max(...BOOM_GUARDS.map(g => (fullDay[g] && fullDay[g].totalActive) || 0), 1);
+    function upd(team, idx, field, val) { setGuards(p => (Object.assign(Object.assign({}, p), { [team]: p[team].map((g, i) => i === idx ? Object.assign(Object.assign({}, g), { [field]: val }) : g) }))); }
+    function updBoom(guard, field, val) { setBoomGuards(p => (Object.assign(Object.assign({}, p), { [guard]: Object.assign(Object.assign({}, p[guard]), { [field]: val }) }))); }
+    const TABS = [
+        { id: "schedule", label: "SCHEDULE" },
+        { id: "breaks", label: "BREAKS" },
+        { id: "minutes", label: "MINUTES" },
+        { id: "teams", label: "ROSTER" },
+    ];
+    return (React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { fontFamily: "'DM Sans',sans-serif", background: "#050E1B", minHeight: "100vh", color: "#C8E0F0" } },
+            React.createElement("header", { style: { background: "linear-gradient(160deg,#0B1E38,#050E1B)", borderBottom: "2px solid #00C2E0", padding: "16px 24px", display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" } },
+                React.createElement("div", { style: { fontSize: "42px", lineHeight: 1 } }, "\uD83C\uDFCA"),
+                React.createElement("div", { style: { flex: 1 } },
+                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "28px", letterSpacing: "4px", color: "#00D8FF", lineHeight: 1 } }, "LIFEGUARD ROTATION TRACKER"),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", marginTop: "3px" } }, "4 TEAMS | 4 CHAIRS + BOOM (1-5PM) | ROTATE EVERY 15 MIN | REST AT :45")),
+                React.createElement("div", { style: { textAlign: "right" } },
+                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "34px", color: "#00D8FF", lineHeight: 1 } }, fmt(ch, cm)),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "2px", marginTop: "2px", color: !isOpen ? "#3A6A8A" : curSlot && curSlot.type === "rest" ? "#FF4444" : "#2ECC71" } }, !isOpen ? "POOL CLOSED" : curSlot && curSlot.type === "rest" ? "REST BREAK" : "POOL OPEN"),
+                    plannerInfo && React.createElement("div", { style: { fontSize: "10px", color: "#2ECC71", letterSpacing: "1px", marginTop: "3px", display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" } },
+                        React.createElement("span", { style: { background: "#003318", border: "1px solid #2ECC7155", borderRadius: "3px", padding: "1px 6px" } }, "PLANNER SYNCED")))),
+            isOpen && curSlot && curSlot.type === "active" && (() => {
+                const { ch1ch4, slDv, bullpen, outTeam, outReason, h, m, chair5Conflict } = curSlot;
+                const sm2 = h * 60 + m, slotKey = h * 100 + m, mode = getMode(slotKey);
+                const boom = mode === "boom" ? BOOM_CYCLE[m] : null;
+                const gn = (t, gi) => { const g = guards[t][gi]; return g.name.trim() && sm2 >= g.start && sm2 <= g.end ? g.name : null; };
+                const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
+                return (React.createElement("div", { style: { background: "#080F1A", borderBottom: "1px solid #12294A", padding: "10px 24px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } },
+                    React.createElement("span", { style: { fontSize: "10px", letterSpacing: "3px", color: "#3A6A8A" } }, "NOW:"),
+                    React.createElement("div", { style: { background: TEAM_DARK[ch1ch4], border: "1px solid " + TEAM_COLORS[ch1ch4] + "55", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "10px", alignItems: "center" } },
+                        React.createElement("span", { style: { color: TEAM_COLORS[ch1ch4], fontFamily: "'Bebas Neue'", fontSize: "16px" } }, ch1ch4),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "2px" } },
+                            mode === "chair3" ? React.createElement("span", { style: { fontSize: "11px", color: "#444A5A" } }, "Chair 1 - closed") : React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } },
+                                "Chair 1",
+                                gn(ch1ch4, 0) ? " - " + gn(ch1ch4, 0) : ""),
+                            React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } },
+                                "Chair 4",
+                                gn(ch1ch4, 1) ? " - " + gn(ch1ch4, 1) : ""))),
+                    React.createElement("div", { style: { background: TEAM_DARK[slDv], border: "1px solid " + TEAM_COLORS[slDv] + "55", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "10px", alignItems: "center" } },
+                        React.createElement("span", { style: { color: TEAM_COLORS[slDv], fontFamily: "'Bebas Neue'", fontSize: "16px" } }, slDv),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "2px" } },
+                            React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } },
+                                "Slide",
+                                gn(slDv, 0) ? " - " + gn(slDv, 0) : ""),
+                            React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } },
+                                "Diving Board",
+                                gn(slDv, 1) ? " - " + gn(slDv, 1) : ""))),
+                    boom && (React.createElement("div", { style: { background: BOOM_DARK["E"], border: "1px solid #9B30D044", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "10px", alignItems: "center" } },
+                        React.createElement("span", { style: { color: "#E879F9", fontFamily: "'Bebas Neue'", fontSize: "14px", letterSpacing: "1px" } }, "BOOM"),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "2px" } },
+                            React.createElement("span", { style: { fontSize: "11px", color: "#9B30A0" } },
+                                "Ch5: ",
+                                React.createElement("span", { style: { color: BOOM_COLORS[boom.ch5] } },
+                                    boom.ch5,
+                                    bn(boom.ch5) ? " - " + bn(boom.ch5) : "")),
+                            React.createElement("span", { style: { fontSize: "11px", color: "#9B30A0" } },
+                                "Mush: ",
+                                React.createElement("span", { style: { color: BOOM_COLORS[boom.mush] } },
+                                    boom.mush,
+                                    bn(boom.mush) ? " - " + bn(boom.mush) : "")),
+                            React.createElement("span", { style: { fontSize: "11px", color: "#5A4A6A" } },
+                                "BP: ",
+                                boom.bbp,
+                                bn(boom.bbp) ? " - " + bn(boom.bbp) : "")))),
+                    bullpen && mode === "normal" && React.createElement("div", { style: { background: "#0C1020", border: "1px solid #1A2040", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
+                        React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } }, "Bullpen"),
+                        React.createElement(TeamChip, { team: bullpen })),
+                    bullpen && mode === "boom" && React.createElement("div", { style: { background: "#0C1020", border: "1px solid #1A2040", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
+                        React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } }, "Bullpen"),
+                        React.createElement(TeamChip, { team: bullpen })),
+                    outTeam && React.createElement("div", { style: { background: "#1A1206", border: "1px solid #6B4A1A", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
+                        React.createElement(TeamChip, { team: outTeam }),
+                        React.createElement("span", { style: { fontSize: "11px", color: "#8B6A2A" } }, outReason === "Not arrived" ? "Not arrived" : outReason === "End of shift" ? "Done" : "On break")),
+                    mode === "chair5" && chair5Conflict && React.createElement("div", { style: { background: "#2A0800", border: "2px solid #FF4400", borderRadius: "8px", padding: "5px 14px" } },
+                        React.createElement("span", { style: { fontSize: "11px", color: "#FF6633", fontWeight: 700 } }, "WARNING: MANAGER COVERAGE NEEDED AT NEXT ROTATION"))));
+            })(),
+            isOpen && curSlot && curSlot.type === "rest" && (() => {
+                const { rSlide, rConcession, closing, boomSupport } = curSlot;
+                const sm2 = curSlot.h * 60 + 45;
+                const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
+                return (React.createElement("div", { style: { background: "#0E0A02", borderBottom: "1px solid #5C3A10", padding: "10px 24px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } },
+                    React.createElement("span", { style: { fontSize: "11px", letterSpacing: "3px", color: "#FF4444", fontWeight: 700 } }, "REST BREAK"),
+                    !closing && rSlide && React.createElement(React.Fragment, null,
+                        React.createElement("div", { style: { background: TEAM_DARK[rSlide], border: "1px solid " + TEAM_COLORS[rSlide] + "55", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "8px", alignItems: "center" } },
+                            React.createElement("span", { style: { fontSize: "10px", color: "#3A6A8A" } }, "Slide"),
+                            React.createElement(TeamChip, { team: rSlide }),
+                            boomSupport && React.createElement(React.Fragment, null,
+                                React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
+                                React.createElement("span", { style: { background: BOOM_COLORS[boomSupport.bSlide], color: "#000", fontWeight: 900, padding: "1px 6px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } },
+                                    boomSupport.bSlide,
+                                    bn(boomSupport.bSlide) ? " " + bn(boomSupport.bSlide) : ""))),
+                        React.createElement("div", { style: { background: TEAM_DARK[rConcession], border: "1px solid " + TEAM_COLORS[rConcession] + "55", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "8px", alignItems: "center" } },
+                            React.createElement("span", { style: { fontSize: "10px", color: "#3A6A8A" } }, "Conc"),
+                            React.createElement(TeamChip, { team: rConcession }),
+                            boomSupport && React.createElement(React.Fragment, null,
+                                React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
+                                React.createElement("span", { style: { background: BOOM_COLORS[boomSupport.bConc], color: "#000", fontWeight: 900, padding: "1px 6px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } },
+                                    boomSupport.bConc,
+                                    bn(boomSupport.bConc) ? " " + bn(boomSupport.bConc) : ""))),
+                        boomSupport && React.createElement("div", { style: { background: BOOM_DARK[boomSupport.bRest], border: "1px solid " + BOOM_COLORS[boomSupport.bRest] + "44", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "7px", alignItems: "center" } },
+                            React.createElement("span", { style: { fontSize: "10px", color: "#6A4A7A" } }, "Boom rest:"),
+                            React.createElement("span", { style: { color: BOOM_COLORS[boomSupport.bRest], fontFamily: "'Bebas Neue'", fontSize: "14px" } }, boomSupport.bRest))),
+                    closing && React.createElement("span", { style: { fontSize: "11px", color: "#8B2020", letterSpacing: "2px" } }, "POOL CLOSING - ALL STATIONS EMPTY")));
+            })(),
+            React.createElement("div", { style: { display: "flex", borderBottom: "1px solid #12294A", padding: "0 24px", overflowX: "auto" } }, TABS.map(({ id, label }) => (React.createElement("button", { key: id, onClick: () => setTab(id), style: { background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 700, fontSize: "11px", letterSpacing: "2px", whiteSpace: "nowrap", padding: "12px 18px", marginBottom: "-1px", color: tab === id ? "#00D8FF" : "#3A6A8A", borderBottom: tab === id ? "3px solid #00D8FF" : "3px solid transparent" } }, label)))),
+            React.createElement("div", { style: { padding: "24px" } },
+                tab === "schedule" && (React.createElement("div", null,
+                    React.createElement("div", { style: { display: "flex", gap: "10px", marginBottom: "14px", flexWrap: "wrap", alignItems: "center" } },
+                        React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", background: "#0C1B2E", border: "1px solid #1B3A6B", borderRadius: "8px", padding: "8px 14px", flexWrap: "wrap" } },
+                            React.createElement("span", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A" } }, "PER-SLOT:"),
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px" } },
+                                React.createElement("div", { style: { width: 10, height: 10, borderRadius: "2px", background: "#F97316" } }),
+                                React.createElement("span", { style: { fontSize: "11px", color: "#8AAFCC" } }, "+5 = Chair 5 open")),
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px" } },
+                                React.createElement("div", { style: { width: 10, height: 10, borderRadius: "2px", background: "#818CF8" } }),
+                                React.createElement("span", { style: { fontSize: "11px", color: "#8AAFCC" } }, "-1 = 3 chairs")),
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px" } },
+                                React.createElement("div", { style: { width: 10, height: 10, borderRadius: "2px", background: "#E879F9" } }),
+                                React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, "+BOOM = 6 chairs (Ch5 + Mushroom)")))),
+                    React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
+                        React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: "1000px" } },
+                            React.createElement("thead", null,
+                                React.createElement("tr", null,
+                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { verticalAlign: "middle" }) }, "TIME"),
+                                    React.createElement("th", { colSpan: 2, style: Object.assign(Object.assign({}, TH0), { background: "#0A1828", borderBottom: "1px solid #1A3A5A", color: "#5AAFCC", fontSize: "9px", textAlign: "center" }) }, "CHAIR PAIR"),
+                                    React.createElement("th", { rowSpan: 2, style: { width: "4px", background: "#060E1A", padding: 0, borderBottom: "2px solid #00B4D8" } }),
+                                    React.createElement("th", { colSpan: 2, style: Object.assign(Object.assign({}, TH0), { background: "#0A1828", borderBottom: "1px solid #1A3A5A", color: "#5AAFCC", fontSize: "9px", textAlign: "center" }) }, "WATER PAIR"),
+                                    React.createElement("th", { rowSpan: 2, style: { width: "4px", background: "#1A0A2E", padding: 0, borderBottom: "2px solid #9B30D0" } }),
+                                    React.createElement("th", { colSpan: 3, style: Object.assign(Object.assign({}, TH0), { background: "#120A20", borderBottom: "1px solid #4A1A5A", color: "#E879F9", fontSize: "9px", textAlign: "center" }) }, "BOOM PAIR"),
+                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { verticalAlign: "middle" }) }, "BULLPEN"),
+                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { color: "#6B7280", verticalAlign: "middle", fontSize: "9px" }) }, "MODE"),
+                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { color: "#C8A030", verticalAlign: "middle" }) }, "STATUS")),
+                                React.createElement("tr", null,
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "CHAIR 1"),
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "CHAIR 4"),
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "SLIDE"),
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "DIVING BD"),
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#E879F9" }) }, "CHAIR 5"),
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#E879F9" }) }, "MUSHROOM"),
+                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#6A4A7A" }) }, "BOOM BP"))),
+                            React.createElement("tbody", null, SCHEDULE.map((slot, idx) => {
+                                const isCur = isOpen && slot.h === ch && slot.m === cm;
+                                const sm2 = slot.h * 60 + slot.m;
+                                const slotKey = slot.h * 100 + slot.m;
+                                const mode = slot.type === "active" ? getMode(slotKey) : "normal";
+                                const isC5 = mode === "chair5", isC3 = mode === "chair3", isBoom = mode === "boom";
+                                const boomData = isBoom ? BOOM_CYCLE[slot.m] : null;
+                                const conflict = isC5 && slot.chair5Conflict;
+                                const rowCls = conflict ? "trconflict" : isC3 ? "trchair3" : isBoom ? "trboom" : "trh";
+                                const lb = isCur ? "3px solid #FFD700" : conflict ? "3px solid #FF4400" : isC3 ? "3px solid #818CF8" : isBoom ? "3px solid #9B30D055" : "3px solid transparent";
+                                const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
+                                if (slot.type === "rest") {
+                                    const { rSlide, rConcession, h, m, closing, boomSupport } = slot;
+                                    return (React.createElement("tr", { key: idx, className: "trrest", style: { borderLeft: lb } },
+                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { color: isCur ? "#FFD700" : "#664400", fontWeight: 600, background: isCur ? "rgba(255,100,0,0.07)" : "#080604" }) },
+                                            fmt(h, m),
+                                            isCur && React.createElement(NowTag, null)),
+                                        closing ? (React.createElement("td", { colSpan: 12, style: Object.assign(Object.assign({}, TD), { background: "#0C0508", color: "#6A1E1E", textAlign: "center", fontSize: "11px", letterSpacing: "3px", fontWeight: 700 }) }, "POOL CLOSING - ALL STATIONS EMPTY")) : (React.createElement(React.Fragment, null,
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
+                                            React.createElement("td", { style: { width: "4px", background: "#060A10", padding: 0, borderBottom: "1px solid #0D1E35" } }),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) },
+                                                React.createElement("div", null,
+                                                    rSlide && React.createElement(BreakCell, { team: rSlide, sm: sm2, guards: guards }),
+                                                    boomSupport && React.createElement("div", { style: { marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" } },
+                                                        React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
+                                                        React.createElement(BoomGuardCell, { guard: boomSupport.bSlide, sm: sm2, boomGuards: boomGuards })))),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
+                                            React.createElement("td", { style: { width: "4px", background: "#0A061A", padding: 0, borderBottom: "1px solid #0D1E35" } }),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615", color: "#2A1A4A", textAlign: "center" }) }, "-"),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Conc +1:"),
+                                                React.createElement(BoomGuardCell, { guard: boomSupport.bConc, sm: sm2, boomGuards: boomGuards }))),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Rest:"),
+                                                React.createElement(BoomGuardCell, { guard: boomSupport.bRest, sm: sm2, boomGuards: boomGuards }))),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }, rConcession && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+                                                React.createElement("span", { style: { fontSize: "10px", color: "#5A6A4A" } }, "Conc:"),
+                                                React.createElement(BreakCell, { team: rConcession, sm: sm2, guards: guards }))),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#664400", fontSize: "11px", fontStyle: "italic" }) }, "Rest")))));
+                                }
+                                const { ch1ch4, slDv, bullpen, outTeam, outReason, h, m } = slot;
+                                return (React.createElement("tr", { key: idx, className: rowCls, style: { borderLeft: lb } },
+                                    React.createElement("td", { style: Object.assign(Object.assign({}, TD), { fontWeight: 600, whiteSpace: "nowrap", color: isCur ? "#FFD700" : conflict ? "#FF8855" : isC3 ? "#A5B4FC" : isBoom ? "#D8A0F0" : "#C8E0F0", background: isCur ? "rgba(0,200,255,0.07)" : "transparent" }) },
+                                        fmt(h, m),
+                                        isCur && React.createElement(NowTag, null),
+                                        conflict && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#FF4400", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "MGR"),
+                                        isBoom && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#9B30D0", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "BOOM")),
+                                    isC3 ? React.createElement(ClosedCell, null) : React.createElement(ActiveCell, { team: ch1ch4, gi: 0, sm: sm2, guards: guards }),
+                                    React.createElement(ActiveCell, { team: ch1ch4, gi: 1, sm: sm2, guards: guards }),
+                                    React.createElement(PairDiv, null),
+                                    React.createElement(ActiveCell, { team: slDv, gi: 0, sm: sm2, guards: guards }),
+                                    React.createElement(ActiveCell, { team: slDv, gi: 1, sm: sm2, guards: guards }),
+                                    React.createElement("td", { style: { width: "4px", background: isBoom ? "#0A0620" : "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }),
+                                    boomData ? (React.createElement(React.Fragment, null,
+                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
+                                            React.createElement(BoomGuardCell, { guard: boomData.ch5, sm: sm2, boomGuards: boomGuards })),
+                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
+                                            React.createElement(BoomGuardCell, { guard: boomData.mush, sm: sm2, boomGuards: boomGuards })),
+                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(80,20,120,0.06)", color: "#6A4A7A" }) },
+                                            React.createElement(BoomGuardCell, { guard: boomData.bbp, sm: sm2, boomGuards: boomGuards })))) : (React.createElement("td", { colSpan: 3, style: Object.assign(Object.assign({}, TD), { background: "#06040A", color: "#2A1A3A", textAlign: "center", fontSize: "11px" }) }, "-")),
+                                    React.createElement("td", { style: TD }, bullpen ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, isC3 ? (React.createElement(React.Fragment, null,
+                                        React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards }),
+                                        React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards }),
+                                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", paddingTop: "4px", borderTop: "1px solid #12294A" } },
+                                            React.createElement("span", { style: { fontSize: "10px", color: "#818CF8" } }, "+ free:"),
+                                            React.createElement(BullpenName, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, dim: true }))))
+                                        : isC5 ? (React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards }))
+                                            : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
+                                    React.createElement("td", { style: TD },
+                                        React.createElement(SlotModeBtn, { slotKey: slotKey, mode: mode, onChange: setMode })),
+                                    React.createElement("td", { style: TD }, outTeam && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
+                                        React.createElement(TeamChip, { team: outTeam }),
+                                        React.createElement("span", { style: { fontSize: "11px", color: "#8B6A2A" } }, outReason === "Not arrived" ? "Not arrived" : outReason === "End of shift" ? "Done" : "On break")))));
+                            })))))),
+                tab === "breaks" && (React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", marginBottom: "20px" } }, "BREAK COVERAGE - SCHEDULED TEAMS + BOOM SUPPORT (1:45-4:45)"),
+                    React.createElement("div", { style: { display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "24px" } },
+                        TEAMS.map(team => {
+                            const sc = Object.values(BREAK_ASSIGN).filter(b => b.rSlide === team).length;
+                            const cc = Object.values(BREAK_ASSIGN).filter(b => b.rConcession === team).length;
+                            return React.createElement("div", { key: team, style: { background: "#0C1B2E", border: "1px solid " + TEAM_COLORS[team] + "33", borderTop: "3px solid " + TEAM_COLORS[team], borderRadius: "10px", padding: "14px 18px", minWidth: "130px" } },
+                                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } },
+                                    React.createElement(TeamBadge, { team: team, size: 24 }),
+                                    React.createElement("span", { style: { fontFamily: "'Bebas Neue'", fontSize: "16px", color: TEAM_COLORS[team], letterSpacing: "2px" } },
+                                        "TEAM ",
+                                        team)),
+                                React.createElement("div", { style: { fontSize: "12px", color: "#8AAFCC", lineHeight: 2 } },
+                                    React.createElement("div", null,
+                                        "Slide: ",
+                                        React.createElement("strong", { style: { color: "#C8E0F0" } },
+                                            sc,
+                                            "x")),
+                                    React.createElement("div", null,
+                                        "Conc: ",
+                                        React.createElement("strong", { style: { color: "#C8E0F0" } },
+                                            cc,
+                                            "x"))));
+                        }),
+                        BOOM_GUARDS.map(g => {
+                            const bs = Object.values(BOOM_BREAK_SUPPORT);
+                            const sc = bs.filter(b => b.bSlide === g).length;
+                            const cc = bs.filter(b => b.bConc === g).length;
+                            const rc = bs.filter(b => b.bRest === g).length;
+                            return React.createElement("div", { key: g, style: { background: BOOM_DARK[g], border: "1px solid " + BOOM_COLORS[g] + "33", borderTop: "3px solid " + BOOM_COLORS[g], borderRadius: "10px", padding: "14px 18px", minWidth: "130px" } },
+                                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } },
+                                    React.createElement(TeamBadge, { team: g, size: 24, boom: true }),
+                                    React.createElement("span", { style: { fontFamily: "'Bebas Neue'", fontSize: "16px", color: BOOM_COLORS[g], letterSpacing: "2px" } },
+                                        "GUARD ",
+                                        g)),
+                                React.createElement("div", { style: { fontSize: "12px", color: "#C8A0E0", lineHeight: 2 } },
+                                    React.createElement("div", null,
+                                        "Slide +1: ",
+                                        React.createElement("strong", { style: { color: "#E0D0F0" } },
+                                            sc,
+                                            "x")),
+                                    React.createElement("div", null,
+                                        "Conc +1: ",
+                                        React.createElement("strong", { style: { color: "#E0D0F0" } },
+                                            cc,
+                                            "x")),
+                                    React.createElement("div", null,
+                                        "Rest: ",
+                                        React.createElement("strong", { style: { color: "#E0D0F0" } },
+                                            rc,
+                                            "x"))));
+                        })),
+                    React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
+                        React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: "500px" } },
+                            React.createElement("thead", null,
+                                React.createElement("tr", null, ["REST BREAK", "SLIDE", "SLIDE +1", "CONCESSION", "CONC +1", "BOOM REST"].map(h => React.createElement("th", { key: h, style: TH0 }, h)))),
+                            React.createElement("tbody", null, SCHEDULE.filter(s => s.type === "rest" && !s.closing).map((slot, i) => {
+                                const isCur = isOpen && curSlot && curSlot.type === "rest" && curSlot.h === slot.h;
+                                const sm2 = slot.h * 60 + 45;
+                                return React.createElement("tr", { key: i, className: "trh", style: { borderLeft: isCur ? "3px solid #FF6B35" : "3px solid transparent", background: isCur ? "rgba(255,100,0,0.07)" : "transparent" } },
+                                    React.createElement("td", { style: Object.assign(Object.assign({}, TD), { fontWeight: 600, color: isCur ? "#FF9040" : "#C8E0F0", whiteSpace: "nowrap" }) },
+                                        fmt(slot.h, 45),
+                                        isCur && React.createElement(NowTag, null)),
+                                    React.createElement("td", { style: TD }, slot.rSlide && React.createElement(BreakCell, { team: slot.rSlide, sm: sm2, guards: guards })),
+                                    React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.05)" }) }, slot.boomSupport ? React.createElement(BoomGuardCell, { guard: slot.boomSupport.bSlide, sm: sm2, boomGuards: boomGuards }) : React.createElement("span", { style: { color: "#3A1A5A", fontSize: "11px" } }, "-")),
+                                    React.createElement("td", { style: TD }, slot.rConcession && React.createElement(BreakCell, { team: slot.rConcession, sm: sm2, guards: guards })),
+                                    React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.05)" }) }, slot.boomSupport ? React.createElement(BoomGuardCell, { guard: slot.boomSupport.bConc, sm: sm2, boomGuards: boomGuards }) : React.createElement("span", { style: { color: "#3A1A5A", fontSize: "11px" } }, "-")),
+                                    React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.03)" }) }, slot.boomSupport ? React.createElement(BoomGuardCell, { guard: slot.boomSupport.bRest, sm: sm2, boomGuards: boomGuards }) : React.createElement("span", { style: { color: "#3A1A5A", fontSize: "11px" } }, "-")));
+                            })))))),
+                tab === "minutes" && (React.createElement("div", null,
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: "24px", gap: "12px", flexWrap: "wrap" } },
+                        React.createElement("button", { className: "tog", onClick: () => setMinsView("sofar"), style: { borderRadius: "6px 0 0 6px", background: minsView === "sofar" ? "#00C2E0" : "none", color: minsView === "sofar" ? "#000" : "#3A6A8A", borderColor: minsView === "sofar" ? "#00C2E0" : "#1B3A6B" } }, "SO FAR TODAY"),
+                        React.createElement("button", { className: "tog", onClick: () => setMinsView("fullday"), style: { borderRadius: "0 6px 6px 0", marginLeft: "-1px", background: minsView === "fullday" ? "#00C2E0" : "none", color: minsView === "fullday" ? "#000" : "#3A6A8A", borderColor: minsView === "fullday" ? "#00C2E0" : "#1B3A6B" } }, "FULL DAY")),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", marginBottom: "14px" } }, "CORE ROTATION - TEAMS A/B/C/D"),
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "16px", marginBottom: "28px" } }, TEAMS.map(team => {
+                        const s = DS[team];
+                        const maxBar = minsView === "fullday" ? maxActive : Math.max(...TEAMS.map(t => soFar[t].totalActive), 1);
+                        const rows = [
+                            { label: "Chair 1" + (chair3Count > 0 ? " (may be reduced)" : ""), val: s.ch1, color: TEAM_COLORS[team] },
+                            { label: "Chair 4", val: s.ch4, color: TEAM_COLORS[team] },
+                            { label: "Slide (rotation)", val: s.rotSlide, color: "#7EC8E3" },
+                            { label: "Diving Board", val: s.divBd, color: "#7EC8E3" },
+                            { label: "Break - Slide duty", val: s.brkSlide, color: "#F97316" },
+                            { label: "Break - Concession", val: s.conc, color: "#A78BFA" },
+                            ...(chair5Count > 0 ? [{ label: "Chair 5 (Guard 1 only)", val: s.ch5, color: "#F97316" }] : []),
+                        ];
+                        return React.createElement("div", { key: team, style: { background: "#0C1B2E", borderTop: "3px solid " + TEAM_COLORS[team], border: "1px solid " + TEAM_COLORS[team] + "33", borderRadius: "10px", padding: "20px" } },
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" } },
+                                React.createElement(TeamBadge, { team: team }),
+                                React.createElement("div", { style: { flex: 1 } },
+                                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "22px", color: TEAM_COLORS[team], letterSpacing: "3px", lineHeight: 1 } },
+                                        "TEAM ",
+                                        team),
+                                    React.createElement("div", { style: { fontSize: "10px", color: "#3A6A8A" } }, guards[team].map(g => g.name).filter(Boolean).join(" & ") || "No names")),
+                                React.createElement("div", { style: { textAlign: "right" } },
+                                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "26px", color: TEAM_COLORS[team], lineHeight: 1 } }, s.totalActive),
+                                    React.createElement("div", { style: { fontSize: "9px", color: "#3A6A8A" } }, "MIN"))),
+                            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } },
+                                rows.map(({ label, val, color }) => React.createElement("div", { key: label },
+                                    React.createElement("div", { style: { fontSize: "11px", color: "#6A8AAA", marginBottom: "3px" } }, label),
+                                    React.createElement(MinBar, { value: val, max: maxBar, color: color }))),
+                                React.createElement("div", { style: { borderTop: "1px solid #12294A", paddingTop: "8px", display: "flex", justifyContent: "space-between", background: "#08121E", padding: "8px 10px", borderRadius: "6px", marginTop: "4px" } },
+                                    React.createElement("span", { style: { fontSize: "12px", color: "#8AAFCC", fontWeight: 700 } }, "Total active"),
+                                    React.createElement("span", { style: { fontSize: "15px", fontWeight: 700, color: TEAM_COLORS[team] } },
+                                        s.totalActive,
+                                        " min"))));
+                    })),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#9B30D0", marginBottom: "14px" } }, "BOOM EXTENSION - GUARDS E/F/G (1-5 PM)"),
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: "16px", marginBottom: "24px" } }, BOOM_GUARDS.map(g => {
+                        const s = DS[g] || { ch5: 0, mush: 0, bbp: 0, brkSlide: 0, conc: 0, rest: 0, totalActive: 0 };
+                        const rows = [
+                            { label: "Chair 5", val: s.ch5, color: BOOM_COLORS[g] },
+                            { label: "Mushroom", val: s.mush, color: BOOM_COLORS[g] },
+                            { label: "Boom Bullpen", val: s.bbp, color: "#7B6A9A" },
+                            { label: "Break - Slide support", val: s.brkSlide, color: "#F97316" },
+                            { label: "Break - Conc support", val: s.conc, color: "#A78BFA" },
+                            { label: "Break - Rest", val: s.rest, color: "#2ECC71" },
+                        ];
+                        return React.createElement("div", { key: g, style: { background: BOOM_DARK[g], borderTop: "3px solid " + BOOM_COLORS[g], border: "1px solid " + BOOM_COLORS[g] + "33", borderRadius: "10px", padding: "20px" } },
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" } },
+                                React.createElement(TeamBadge, { team: g, size: 36, boom: true }),
+                                React.createElement("div", { style: { flex: 1 } },
+                                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "22px", color: BOOM_COLORS[g], letterSpacing: "3px", lineHeight: 1 } },
+                                        "GUARD ",
+                                        g),
+                                    React.createElement("div", { style: { fontSize: "10px", color: "#6A4A7A" } }, boomGuards[g].name || "No name")),
+                                React.createElement("div", { style: { textAlign: "right" } },
+                                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "26px", color: BOOM_COLORS[g], lineHeight: 1 } }, s.totalActive),
+                                    React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "MIN"))),
+                            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } }, rows.map(({ label, val, color }) => React.createElement("div", { key: label },
+                                React.createElement("div", { style: { fontSize: "11px", color: "#8A6AAA", marginBottom: "3px" } }, label),
+                                React.createElement(MinBar, { value: val, max: maxBoom, color: color })))));
+                    })))),
+                tab === "teams" && (React.createElement("div", null,
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px", flexWrap: "wrap" } },
+                        React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", flex: 1 } }, "GUARD 1: CHAIR 1 / SLIDE | GUARD 2: CHAIR 4 / DIVING BOARD"),
+                        React.createElement("button", { onClick: reloadFromPlanner, style: { cursor: "pointer", border: "1px solid #2ECC7155", borderRadius: "6px", padding: "6px 14px", background: "#003318", color: "#2ECC71", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", whiteSpace: "nowrap" } }, "RELOAD FROM PLANNER")),
+                    plannerInfo && React.createElement("div", { style: { background: "#031A0A", border: "1px solid #2ECC7133", borderRadius: "8px", padding: "10px 14px", marginBottom: "14px", fontSize: "11px", color: "#5A8A6A", display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" } },
+                        React.createElement("span", { style: { color: "#2ECC71", fontWeight: 700 } }, "Names loaded from Staffing Planner"),
+                        React.createElement("span", null,
+                            "Date: ",
+                            plannerInfo.date),
+                        React.createElement("span", null,
+                            "Pushed: ",
+                            new Date(plannerInfo.pushedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
+                        plannerInfo.hasSplit && React.createElement("span", { style: { color: "#F97316" } }, "Split shifts detected - check afternoon guards manually")),
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "16px", marginBottom: "28px" } }, TEAMS.map(team => (React.createElement("div", { key: team, style: { background: "#0C1B2E", borderTop: "3px solid " + TEAM_COLORS[team], border: "1px solid " + TEAM_COLORS[team] + "33", borderRadius: "10px", padding: "18px" } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" } },
+                            React.createElement(TeamBadge, { team: team }),
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "20px", color: TEAM_COLORS[team], letterSpacing: "3px", lineHeight: 1 } },
+                                    "TEAM ",
+                                    team),
+                                React.createElement("div", { style: { fontSize: "10px", color: "#3A6A8A" } }, team === "A" ? "12pm - 6pm" : team === "D" ? "2pm - 6:45pm" : "12pm - 6:45pm"))),
+                        [0, 1].map(i => (React.createElement("div", { key: i, style: { background: "#08121E", border: "1px solid #12294A", borderRadius: "8px", padding: "12px", marginBottom: "8px" } },
+                            React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "6px" } },
+                                "GUARD ",
+                                i + 1,
+                                " - ",
+                                i === 0 ? "Chair 1 / Slide" : "Chair 4 / Diving Board"),
+                            React.createElement("input", { value: guards[team][i].name, onChange: e => upd(team, i, "name", e.target.value), placeholder: "Full name...", style: { width: "100%", background: "#0D1E35", border: "1px solid " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "7px 10px", color: "#C8E0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", marginBottom: "8px" } }),
+                            React.createElement("div", { style: { display: "flex", gap: "8px" } }, ["start", "end"].map(field => (React.createElement("div", { key: field, style: { flex: 1 } },
+                                React.createElement("div", { style: { fontSize: "9px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "3px" } }, field === "start" ? "START" : "END"),
+                                React.createElement("select", { value: guards[team][i][field], onChange: e => upd(team, i, field, Number(e.target.value)), style: { width: "100%", background: "#0D1E35", border: "1px solid " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "6px 8px", color: "#C8E0F0", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", cursor: "pointer" } }, TIME_OPTIONS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label)))))))))))))),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#9B30D0", marginBottom: "14px" } }, "BOOM EXTENSION GUARDS (1pm - 5pm)"),
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "16px" } }, BOOM_GUARDS.map(g => (React.createElement("div", { key: g, style: { background: BOOM_DARK[g], borderTop: "3px solid " + BOOM_COLORS[g], border: "1px solid " + BOOM_COLORS[g] + "33", borderRadius: "10px", padding: "18px" } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" } },
+                            React.createElement(TeamBadge, { team: g, size: 36, boom: true }),
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "20px", color: BOOM_COLORS[g], letterSpacing: "3px", lineHeight: 1 } },
+                                    "GUARD ",
+                                    g),
+                                React.createElement("div", { style: { fontSize: "10px", color: "#6A4A7A" } }, "1:00 PM - 5:00 PM"),
+                                React.createElement("div", { style: { fontSize: "10px", color: "#6A4A7A" } }, "Chair 5, Mushroom, Break support"))),
+                        React.createElement("input", { value: boomGuards[g].name, onChange: e => updBoom(g, "name", e.target.value), placeholder: "Full name...", style: { width: "100%", background: "#0D1020", border: "1px solid " + BOOM_COLORS[g] + "44", borderRadius: "6px", padding: "7px 10px", color: "#E0D0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif" } })))))))))));
+}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>
