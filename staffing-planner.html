@@ -31,10 +31,8 @@
 const TEAM_COLORS = { A:"#3B82F6", B:"#FF6B35", C:"#2ECC71", D:"#F1C40F" };
 
 const ROLE_META = {
-  core:  { label:"Core Guard", color:"#16A34A", dark:"#002A36" },
-  boom:  { label:"Boom Guard",  color:"#E879F9", dark:"#2D0040" },
-  hlg:   { label:"Head LG",    color:"#F1C40F", dark:"#2E2700" },
-  float: { label:"Float",      color:"#2ECC71", dark:"#003318" },
+  guard: { label:"Lifeguard",      color:"#16A34A", dark:"#002A36" },
+  hlg:   { label:"Head Lifeguard", color:"#F1C40F", dark:"#2E2700" },
 };
 
 const DAY_META = {
@@ -206,8 +204,10 @@ function App() {
   const [loaded,setLoaded]   = useState(false);
 
   // Roster form
-  const [form,setForm]       = useState({name:"",role:"core",defaultTeam:"A",notes:""});
+  const [form,setForm]       = useState({name:"",role:"guard",notes:""});
   const [editingId,setEditingId] = useState(null);
+  const [showCsv,setShowCsv]     = useState(false);
+  const [csvText,setCsvText]     = useState("");
   const [showInactive,setShowInactive] = useState(false);
 
   // Change modal
@@ -345,14 +345,35 @@ function App() {
       setRoster(p=>p.map(g=>g.id===editingId?{...g,...form,name:form.name.trim()}:g));
       setEditingId(null);
     } else {
-      setRoster(p=>[...p,{id:uid(),name:form.name.trim(),role:form.role,defaultTeam:form.defaultTeam,notes:form.notes,active:true}]);
+      setRoster(p=>[...p,{id:uid(),name:form.name.trim(),role:form.role,notes:form.notes,active:true}]);
     }
-    setForm({name:"",role:"core",defaultTeam:"A",notes:""});
+    setForm({name:"",role:"guard",notes:""});
   }
 
   function startEdit(g) {
     setEditingId(g.id);
-    setForm({name:g.name,role:g.role,defaultTeam:g.defaultTeam||"A",notes:g.notes||""});
+    setForm({name:g.name,role:g.role,notes:g.notes||""});
+  }
+
+  // ---- CSV Import ----
+  function importCsv() {
+    const lines = csvText.split("\n").map(l=>l.trim()).filter(Boolean);
+    const added = [];
+    for (const line of lines) {
+      // Support: "Name" or "Name, role" or "Name, hlg"
+      const parts = line.split(",").map(s=>s.trim());
+      const name = parts[0];
+      if (!name) continue;
+      const rawRole = (parts[1]||"").toLowerCase();
+      const role = rawRole.includes("head")||rawRole==="hlg" ? "hlg" : "guard";
+      // Skip duplicates
+      if (roster.find(g=>g.active!==false&&g.name.toLowerCase()===name.toLowerCase())) continue;
+      added.push({id:uid(), name, role, notes:"", active:true});
+    }
+    if (added.length > 0) setRoster(p=>[...p,...added]);
+    setCsvText("");
+    setShowCsv(false);
+    alert(added.length+" guard"+(added.length!==1?"s":"")+" added.");
   }
 
   function deactivate(id) { setRoster(p=>p.map(g=>g.id===id?{...g,active:false}:g)); }
@@ -504,20 +525,12 @@ function App() {
                     <input value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}
                       onKeyDown={e=>e.key==="Enter"&&submitGuard()} placeholder="Guard name..." style={INP}/>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
-                    <div>
-                      <div style={{fontSize:"10px",color:"#5A8A6A",marginBottom:"4px",letterSpacing:"1px"}}>ROLE</div>
-                      <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} style={SEL}>
-                        {Object.entries(ROLE_META).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <div style={{fontSize:"10px",color:"#5A8A6A",marginBottom:"4px",letterSpacing:"1px"}}>DEFAULT TEAM</div>
-                      <select value={form.defaultTeam} onChange={e=>setForm(p=>({...p,defaultTeam:e.target.value}))} style={SEL}>
-                        <option value="">None</option>
-                        {["A","B","C","D"].map(t=><option key={t} value={t}>Team {t}</option>)}
-                      </select>
-                    </div>
+                  <div>
+                    <div style={{fontSize:"10px",color:"#5A8A6A",marginBottom:"4px",letterSpacing:"1px"}}>ROLE</div>
+                    <select value={form.role} onChange={e=>setForm(p=>({...p,role:e.target.value}))} style={SEL}>
+                      <option value="guard">Lifeguard</option>
+                      <option value="hlg">Head Lifeguard</option>
+                    </select>
                   </div>
                   <div>
                     <div style={{fontSize:"10px",color:"#5A8A6A",marginBottom:"4px",letterSpacing:"1px"}}>NOTES</div>
@@ -527,13 +540,13 @@ function App() {
                     <button onClick={submitGuard} style={{...BTN("#16A34A","#000"),flex:1}}>
                       {editingId?"SAVE CHANGES":"ADD TO ROSTER"}
                     </button>
-                    {editingId&&<button onClick={()=>{setEditingId(null);setForm({name:"",role:"core",defaultTeam:"A",notes:""}); }} style={{...BTN("#0D1E35","#5A8A6A"),border:"1px solid #14532D"}}>CANCEL</button>}
+                    {editingId&&<button onClick={()=>{setEditingId(null);setForm({name:"",role:"guard",notes:""}); }} style={{...BTN("#0D1E35","#5A8A6A"),border:"1px solid #14532D"}}>CANCEL</button>}
                   </div>
                 </div>
 
                 {/* Quick stats */}
                 <div style={{marginTop:"20px",paddingTop:"16px",borderTop:"1px solid #166534",display:"flex",gap:"16px",justifyContent:"center",flexWrap:"wrap"}}>
-                  {[{v:activeGuards.length,l:"Active"},{v:activeGuards.filter(g=>g.role==="core").length,l:"Core"},{v:activeGuards.filter(g=>g.role==="boom").length,l:"Boom"},{v:activeGuards.filter(g=>g.role==="hlg").length,l:"HLG"}].map(({v,l})=>(
+                  {[{v:activeGuards.length,l:"Total"},{v:activeGuards.filter(g=>g.role==="guard").length,l:"Guards"},{v:activeGuards.filter(g=>g.role==="hlg").length,l:"HLG"}].map(({v,l})=>(
                     <div key={l} style={{textAlign:"center"}}>
                       <div style={{fontFamily:"'Bebas Neue'",fontSize:"26px",color:"#22C55E",lineHeight:1}}>{v}</div>
                       <div style={{fontSize:"9px",color:"#4A7A5A",letterSpacing:"2px"}}>{l.toUpperCase()}</div>
@@ -560,11 +573,28 @@ function App() {
 
               {/* Guard table */}
               <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px",flexWrap:"wrap",gap:"8px"}}>
+                  <div style={{fontSize:"10px",letterSpacing:"2px",color:"#4A7A5A"}}>{activeGuards.length} ACTIVE GUARDS</div>
+                  <button onClick={()=>setShowCsv(p=>!p)} style={{cursor:"pointer",border:"1px solid #14532D",borderRadius:"6px",padding:"6px 14px",background:"#0D1E35",color:"#16A34A",fontFamily:"'DM Sans',sans-serif",fontSize:"11px",fontWeight:700,letterSpacing:"1px"}}>
+                    IMPORT CSV
+                  </button>
+                </div>
+                {showCsv&&(
+                  <div style={{background:"#0A1828",border:"1px solid #14532D",borderRadius:"8px",padding:"14px",marginBottom:"14px"}}>
+                    <div style={{fontSize:"10px",color:"#5A8A6A",letterSpacing:"1px",marginBottom:"6px"}}>PASTE CSV -- one guard per line: Name or Name, hlg</div>
+                    <textarea value={csvText} onChange={e=>setCsvText(e.target.value)} rows={6} placeholder={"Jordan Smith\nAlex Rivera\nMarcus Lee, hlg\nTaylor Brown"} style={{width:"100%",background:"#050E1B",border:"1px solid #14532D",borderRadius:"6px",padding:"8px 10px",color:"#C8E0F0",fontSize:"12px",fontFamily:"monospace",resize:"vertical",marginBottom:"8px"}}/>
+                    <div style={{display:"flex",gap:"8px"}}>
+                      <button onClick={importCsv} style={{cursor:"pointer",border:"none",borderRadius:"6px",padding:"7px 16px",background:"#16A34A",color:"#000",fontFamily:"'DM Sans',sans-serif",fontSize:"12px",fontWeight:700}}>IMPORT</button>
+                      <button onClick={()=>{setShowCsv(false);setCsvText("");}} style={{cursor:"pointer",border:"1px solid #1A3A22",borderRadius:"6px",padding:"7px 14px",background:"none",color:"#5A8A6A",fontFamily:"'DM Sans',sans-serif",fontSize:"12px"}}>CANCEL</button>
+                    </div>
+                    <div style={{marginTop:"8px",fontSize:"10px",color:"#3A4A5A"}}>Duplicates are skipped. Existing guards are not affected.</div>
+                  </div>
+                )}
                 <div style={{overflowX:"auto",borderRadius:"10px",border:"1px solid #166534"}}>
                   <table style={{width:"100%",borderCollapse:"collapse",minWidth:"540px"}}>
                     <thead>
                       <tr>
-                        {["GUARD NAME","ROLE","TEAM","NOTES","CHANGES",""].map(h=>(
+                        {["GUARD NAME","ROLE","NOTES","CHANGES",""].map(h=>(
                           <th key={h} style={{padding:"10px 12px",background:"#071A0E",color:"#22C55E",fontSize:"10px",letterSpacing:"2px",textAlign:"left",borderBottom:"2px solid #15803D",whiteSpace:"nowrap"}}>{h}</th>
                         ))}
                       </tr>
@@ -576,7 +606,7 @@ function App() {
                           <tr key={g.id} className="hovrow">
                             <td style={{padding:"10px 12px",borderBottom:"1px solid #0D1E35",fontWeight:600,color:"#C8E0F0"}}>{g.name}</td>
                             <td style={{padding:"10px 12px",borderBottom:"1px solid #0D1E35"}}><RolePill role={g.role}/></td>
-                            <td style={{padding:"10px 12px",borderBottom:"1px solid #0D1E35"}}>{g.defaultTeam?<TeamDot team={g.defaultTeam} size={22}/>:<span style={{color:"#3A4A5A",fontSize:"12px"}}>-</span>}</td>
+
                             <td style={{padding:"10px 12px",borderBottom:"1px solid #0D1E35",fontSize:"12px",color:"#5A8A6A",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.notes||"-"}</td>
                             <td style={{padding:"10px 12px",borderBottom:"1px solid #0D1E35"}}>
                               {chg>0&&<span style={{fontSize:"12px",fontWeight:700,color:chg>=5?"#FF4444":chg>=3?"#F97316":"#F1C40F"}}>{chg}x</span>}
@@ -592,7 +622,7 @@ function App() {
                         );
                       })}
                       {activeGuards.length===0&&(
-                        <tr><td colSpan={6} style={{padding:"40px",textAlign:"center",color:"#3A4A5A",fontStyle:"italic"}}>No guards yet. Add your first guard using the form.</td></tr>
+                        <tr><td colSpan={5} style={{padding:"40px",textAlign:"center",color:"#3A4A5A",fontStyle:"italic"}}>No guards yet. Add your first guard above or use Import CSV.</td></tr>
                       )}
                     </tbody>
                   </table>
