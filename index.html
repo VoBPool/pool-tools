@@ -38,7 +38,7 @@
       flex-wrap: wrap;
       justify-content: center;
       width: 100%;
-      max-width: 640px;
+      max-width: 960px;
     }
     a.card {
       flex: 1;
@@ -56,6 +56,13 @@
       border-color: #22C55E;
       box-shadow: 0 8px 24px rgba(34,197,94,0.15);
     }
+    a.card.pos-card { border-color: #1e3a5f; }
+    a.card.pos-card:hover {
+      border-color: #0ea5e9;
+      box-shadow: 0 8px 24px rgba(14,165,233,0.15);
+    }
+    a.card.pos-card .card-title { color: #0ea5e9; }
+    a.card.pos-card .card-desc { color: #3a6a8a; }
     .card-icon { font-size: 40px; margin-bottom: 14px; }
     .card-title {
       font-family: 'Bebas Neue', sans-serif;
@@ -92,6 +99,11 @@
       <div class="card-icon">📋</div>
       <div class="card-title">STAFFING PLANNER</div>
       <div class="card-desc">2-week scheduling. Guard roster, split shifts, boom windows, change log.</div>
+    </a>
+    <a class="card pos-card" href="pos.html">
+      <div class="card-icon">🛒</div>
+      <div class="card-title">CONCESSION STAND</div>
+      <div class="card-desc">Point of sale, inventory tracking, combos, order history, and CSV export.</div>
     </a>
   </div>
 
