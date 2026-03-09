@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pool Tools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #050E1B;
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .logo { font-size: 52px; margin-bottom: 12px; }
+    h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      letter-spacing: 5px;
+      color: #22C55E;
+      margin-bottom: 6px;
+    }
+    .sub {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: #4A7A5A;
+      margin-bottom: 48px;
+    }
+    .cards {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 640px;
+    }
+    a.card {
+      flex: 1;
+      min-width: 240px;
+      background: #0C1B2E;
+      border: 2px solid #14532D;
+      border-radius: 14px;
+      padding: 32px 24px;
+      text-decoration: none;
+      text-align: center;
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+    }
+    a.card:hover {
+      transform: translateY(-4px);
+      border-color: #22C55E;
+      box-shadow: 0 8px 24px rgba(34,197,94,0.15);
+    }
+    .card-icon { font-size: 40px; margin-bottom: 14px; }
+    .card-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px;
+      letter-spacing: 3px;
+      color: #22C55E;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: #4A7A5A;
+      line-height: 1.6;
+    }
+    .footer {
+      margin-top: 48px;
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #14532D;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">🏊</div>
+  <h1>POOL TOOLS</h1>
+  <div class="sub">LIFEGUARD MANAGEMENT SYSTEM</div>
+
+  <div class="cards">
+    <a class="card" href="rotation-tracker.html">
+      <div class="card-icon">⏱️</div>
+      <div class="card-title">ROTATION TRACKER</div>
+      <div class="card-desc">Live day-of schedule. Current slot, break coverage, boom extension, minutes worked.</div>
+    </a>
+    <a class="card" href="staffing-planner.html">
+      <div class="card-icon">📋</div>
+      <div class="card-title">STAFFING PLANNER</div>
+      <div class="card-desc">2-week scheduling. Guard roster, split shifts, boom windows, change log.</div>
+    </a>
+  </div>
+
+  <div class="footer">BOOKMARK THIS PAGE</div>
+</body>
+</html>
