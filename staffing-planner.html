@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lifeguard Staffing Planner</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #050E1B; font-family: 'DM Sans', sans-serif; }
+    #root { min-height: 100vh; }
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#050E1B;}
+        input:focus,select:focus{border-color:#00C2E0!important;outline:none;}
+        ::-webkit-scrollbar{width:5px;height:5px;}
+        ::-webkit-scrollbar-track{background:#0C1B2E;}
+        ::-webkit-scrollbar-thumb{background:#1B3A6B;border-radius:3px;}
+        select option{background:#0C1B2E;}
+        .hovrow:hover td{background:rgba(0,194,224,0.04)!important;}
+        .daytile{cursor:pointer;transition:all .15s;user-select:none;}
+        .daytile:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.4);}
+        .daytile.selected{box-shadow:0 0 0 2px #00D8FF;}
+        .modebtns button{cursor:pointer;border:1px solid #1B3A6B;background:none;color:#5A8AAA;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;padding:5px 12px;transition:all .15s;}
+        .modebtns button:first-child{border-radius:6px 0 0 6px;}
+        .modebtns button:last-child{border-radius:0 6px 6px 0;}
+        .modebtns button+button{margin-left:-1px;}
+        .modebtns button.on{background:#00C2E0;color:#000;border-color:#00C2E0;z-index:1;}
+        .slotcard{background:#08121E;border:1px solid #12294A;border-radius:8px;padding:12px;margin-bottom:8px;}
+        .slotcard:last-child{margin-bottom:0;}
+  </style>
+  <style>
+
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;700&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#050E1B;}
+        input:focus,select:focus{border-color:#16A34A!important;outline:none;}
+        ::-webkit-scrollbar{width:5px;height:5px;}
+        ::-webkit-scrollbar-track{background:#071A0E;}
+        ::-webkit-scrollbar-thumb{background:#14532D;border-radius:3px;}
+        select option{background:#071A0E;}
+        .hovrow:hover td{background:rgba(0,194,224,0.04)!important;}
+        .daytile{cursor:pointer;transition:all .15s;user-select:none;}
+        .daytile:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.4);}
+        .daytile.selected{box-shadow:0 0 0 2px #22C55E;}
+        .modebtns button{cursor:pointer;border:1px solid #14532D;background:none;color:#5A8A6A;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;letter-spacing:1px;padding:5px 12px;transition:all .15s;}
+        .modebtns button:first-child{border-radius:6px 0 0 6px;}
+        .modebtns button:last-child{border-radius:0 6px 6px 0;}
+        .modebtns button+button{margin-left:-1px;}
+        .modebtns button.on{background:#16A34A;color:#000;border-color:#16A34A;z-index:1;}
+        .slotcard{background:#08121E;border:1px solid #166534;border-radius:8px;padding:12px;margin-bottom:8px;}
+        .slotcard:last-child{margin-bottom:0;}
+      
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/javascript">
+    const { useState, useEffect } = React;
+
+    const storage = {
+      get:    async (k)    => { try { const v=localStorage.getItem(k); return v?{value:v}:null; } catch(e){return null;} },
+      set:    async (k,v)  => { try { localStorage.setItem(k,v); return {key:k,value:v}; } catch(e){return null;} },
+      remove: async (k)    => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch(e){return null;} },
+      list:   async (pfx)  => { try { const ks=Object.keys(localStorage).filter(k=>!pfx||k.startsWith(pfx)); return {keys:ks}; } catch(e){return {keys:[]};} },
+    };
+// ===================== CONSTANTS =====================
+const TEAM_COLORS = { A: "#00C2E0", B: "#FF6B35", C: "#2ECC71", D: "#F1C40F" };
+const ROLE_META = {
+    guard: { label: "Lifeguard", color: "#00C2E0", dark: "#002A36" },
+    hlg: { label: "Head Lifeguard", color: "#F1C40F", dark: "#2E2700" },
+};
+const DAY_META = {
+    closed: { label: "Closed", color: "#5A6A7A", bg: "#07090E" },
+    slow: { label: "Slow", color: "#2ECC71", bg: "#030F06" },
+    normal: { label: "Normal", color: "#00C2E0", bg: "#030C14" },
+    busy: { label: "Busy", color: "#F97316", bg: "#120700" },
+};
+const CHAIR_META = {
+    2: { label: "2 Chair", desc: "Slide + Dive", color: "#2ECC71" },
+    3: { label: "3 Chair", desc: "Slide + Dive + Chair4", color: "#00C2E0" },
+    4: { label: "4 Chair", desc: "Full 4-chair rotation", color: "#F97316" },
+};
+// Slot definitions grouped by chair mode
+const SLOT_GROUPS_BY_MODE = {
+    2: [
+        { group: "Water Pair", color: "#7EC8E3", slots: [
+                { id: "SL", label: "Slide", stations: "Slide" },
+                { id: "DV", label: "Diving Board", stations: "Diving Board" },
+            ] },
+        { group: "Head Lifeguard", color: "#F1C40F", slots: [
+                { id: "HLG1", label: "Head LG", stations: "Emergency backup / Float" },
+            ] },
+    ],
+    3: [
+        { group: "Active Stations", color: "#7EC8E3", slots: [
+                { id: "SL", label: "Slide", stations: "Slide" },
+                { id: "DV", label: "Diving Board", stations: "Diving Board" },
+                { id: "C4", label: "Chair 4 (Walking)", stations: "Chair 4 - walking patrol" },
+            ] },
+        { group: "Head Lifeguard", color: "#F1C40F", slots: [
+                { id: "HLG1", label: "Head LG", stations: "Emergency backup / Float" },
+            ] },
+    ],
+    4: [
+        { group: "Team A", color: "#00C2E0", team: "A", slots: [
+                { id: "A1", label: "Guard 1", stations: "Chair 1 / Slide", team: "A" },
+                { id: "A2", label: "Guard 2", stations: "Chair 4 / Diving Board", team: "A" },
+            ] },
+        { group: "Team B", color: "#FF6B35", team: "B", slots: [
+                { id: "B1", label: "Guard 1", stations: "Chair 1 / Slide", team: "B" },
+                { id: "B2", label: "Guard 2", stations: "Chair 4 / Diving Board", team: "B" },
+            ] },
+        { group: "Team C", color: "#2ECC71", team: "C", slots: [
+                { id: "C1", label: "Guard 1", stations: "Chair 1 / Slide", team: "C" },
+                { id: "C2", label: "Guard 2", stations: "Chair 4 / Diving Board", team: "C" },
+            ] },
+        { group: "Team D", color: "#F1C40F", team: "D", slots: [
+                { id: "D1", label: "Guard 1", stations: "Chair 1 / Slide", team: "D" },
+                { id: "D2", label: "Guard 2", stations: "Chair 4 / Diving Board", team: "D" },
+            ] },
+        { group: "Head Lifeguard", color: "#F1C40F", slots: [
+                { id: "HLG1", label: "Head LG 1", stations: "Emergency backup / Float" },
+                { id: "HLG2", label: "Head LG 2", stations: "Emergency backup / Float" },
+            ] },
+    ],
+};
+const BOOM_GROUP = {
+    group: "Boom Extension", color: "#E879F9", slots: [
+        { id: "E", label: "Boom Guard E", stations: "Chair 5 / Mushroom / Break support" },
+        { id: "F", label: "Boom Guard F", stations: "Chair 5 / Mushroom / Break support" },
+        { id: "G", label: "Boom Guard G", stations: "Chair 5 / Mushroom / Break support" },
+    ],
+};
+// Default shift times per slot
+const DEFAULT_TIMES = {
+    A1: { s: 720, e: 1080 }, A2: { s: 720, e: 1080 },
+    B1: { s: 720, e: 1125 }, B2: { s: 720, e: 1125 },
+    C1: { s: 720, e: 1125 }, C2: { s: 720, e: 1125 },
+    D1: { s: 840, e: 1125 }, D2: { s: 840, e: 1125 },
+    HLG1: { s: 660, e: 1140 }, HLG2: { s: 660, e: 1140 },
+    SL: { s: 720, e: 1125 }, DV: { s: 720, e: 1125 }, C4: { s: 720, e: 1125 },
+    E: { s: 780, e: 1020 }, F: { s: 780, e: 1020 }, G: { s: 780, e: 1020 },
+};
+const CHANGE_REASONS = [
+    "Guard requested change",
+    "Guard called out - illness",
+    "Guard called out - personal",
+    "Schedule conflict",
+    "Coverage swap",
+    "Manager adjustment",
+    "New guard added",
+    "Other",
+];
+// ===================== HELPERS =====================
+function uid() { return Math.random().toString(36).slice(2, 9) + Date.now().toString(36); }
+function fmtTime(mins) {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return (h > 12 ? h - 12 : h) + ":" + (String(m).padStart(2, "0")) + " " + (h >= 12 ? "PM" : "AM");
+}
+function fmtDate(ds) {
+    return new Date(ds + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+function fmtDateShort(ds) {
+    return new Date(ds + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function fmtTs(ts) {
+    return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function addDays(ds, n) {
+    const d = new Date(ds + "T12:00:00");
+    d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+}
+function gen14Days(start) { return Array.from({ length: 14 }, (_, i) => addDays(start, i)); }
+function getThisMonday() {
+    const d = new Date(), day = d.getDay();
+    d.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+    return d.toISOString().slice(0, 10);
+}
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+const TIME_OPTS = (() => {
+    const o = [];
+    for (let h = 6; h <= 22; h++)
+        for (let m = 0; m < 60; m += 15)
+            o.push({ val: h * 60 + m, label: fmtTime(h * 60 + m) });
+    return o;
+})();
+// ===================== SMALL COMPONENTS =====================
+function RolePill({ role }) {
+    const m = ROLE_META[role] || ROLE_META.core;
+    return React.createElement("span", { style: { background: m.dark, border: "1px solid " + m.color + "66", color: m.color, borderRadius: "4px", padding: "2px 8px", fontSize: "10px", letterSpacing: "1px", whiteSpace: "nowrap" } }, m.label);
+}
+function TeamDot({ team, size }) {
+    if (!team)
+        return null;
+    const sz = size || 20;
+    return React.createElement("span", { style: { background: TEAM_COLORS[team] || "#666", color: "#000", width: sz, height: sz, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "'Bebas Neue'", fontSize: sz * 0.6, fontWeight: 900, flexShrink: 0 } }, team);
+}
+function DayPill({ type }) {
+    const m = DAY_META[type] || DAY_META.normal;
+    return React.createElement("span", { style: { background: m.bg, border: "1px solid " + m.color + "55", color: m.color, borderRadius: "4px", padding: "2px 7px", fontSize: "10px", letterSpacing: "1px", whiteSpace: "nowrap" } }, m.label);
+}
+function HoursBar({ filled, needed, color }) {
+    const pct = needed > 0 ? Math.min(100, (filled / needed) * 100) : 0;
+    return React.createElement("div", { style: { background: "#08121E", borderRadius: "3px", height: "5px", overflow: "hidden", marginTop: "4px" } },
+        React.createElement("div", { style: { width: pct + "%", height: "100%", background: color || "#2ECC71", borderRadius: "3px", transition: "width .3s" } }));
+}
+// ===================== MAIN APP =====================
+function App() {
+    const [tab, setTab] = useState("roster");
+    const [roster, setRoster] = useState([]);
+    const [periodStart, setPeriodStart] = useState(getThisMonday);
+    const [dayData, setDayData] = useState({});
+    const [selDay, setSelDay] = useState(null);
+    const [logs, setLogs] = useState([]);
+    const [rate, setRate] = useState("");
+    const [mgr, setMgr] = useState("");
+    const [loaded, setLoaded] = useState(false);
+    // Roster form
+    const [form, setForm] = useState({ name: "", role: "guard", notes: "" });
+    const [editingId, setEditingId] = useState(null);
+    const [showCsv, setShowCsv] = useState(false);
+    const [csvText, setCsvText] = useState("");
+    const [showInactive, setShowInactive] = useState(false);
+    // Change modal
+    const [pending, setPending] = useState(null);
+    const [selReason, setSelReason] = useState("");
+    const [otherText, setOtherText] = useState("");
+    // Log filter
+    const [logFilter, setLogFilter] = useState("");
+    // ---- Storage ----
+    useEffect(() => {
+        (async () => {
+            try {
+                const r = await storage.get("planner-roster");
+                if (r)
+                    setRoster(JSON.parse(r.value));
+            }
+            catch (e) { }
+            try {
+                const r = await storage.get("planner-days");
+                if (r)
+                    setDayData(JSON.parse(r.value));
+            }
+            catch (e) { }
+            try {
+                const r = await storage.get("planner-logs");
+                if (r)
+                    setLogs(JSON.parse(r.value));
+            }
+            catch (e) { }
+            try {
+                const r = await storage.get("planner-meta");
+                if (r) {
+                    const v = JSON.parse(r.value);
+                    if (v.ps)
+                        setPeriodStart(v.ps);
+                    if (v.rate)
+                        setRate(v.rate);
+                    if (v.mgr)
+                        setMgr(v.mgr);
+                }
+            }
+            catch (e) { }
+            setLoaded(true);
+        })();
+    }, []);
+    useEffect(() => { if (loaded)
+        storage.set("planner-roster", JSON.stringify(roster)).catch(() => { }); }, [roster, loaded]);
+    useEffect(() => { if (loaded)
+        storage.set("planner-days", JSON.stringify(dayData)).catch(() => { }); }, [dayData, loaded]);
+    useEffect(() => { if (loaded)
+        storage.set("planner-logs", JSON.stringify(logs)).catch(() => { }); }, [logs, loaded]);
+    useEffect(() => { if (loaded)
+        storage.set("planner-meta", JSON.stringify({ ps: periodStart, rate, mgr })).catch(() => { }); }, [periodStart, rate, mgr, loaded]);
+    const days14 = gen14Days(periodStart);
+    // ---- Day data helpers ----
+    function gdd(ds) {
+        return dayData[ds] || { dayType: "normal", chairMode: 4, boomActive: false, boomStart: 780, boomEnd: 1020, slots: {} };
+    }
+    function setDayField(ds, field, val) {
+        setDayData(p => (Object.assign(Object.assign({}, p), { [ds]: Object.assign(Object.assign({}, gdd(ds)), { [field]: val }) })));
+    }
+    function getGroups(ds) {
+        const d = gdd(ds);
+        const base = SLOT_GROUPS_BY_MODE[d.chairMode] || [];
+        if (d.boomActive && d.chairMode === 4)
+            return [...base, BOOM_GROUP];
+        return base;
+    }
+    function getAllSlotIds(ds) {
+        return getGroups(ds).flatMap(g => g.slots.map(s => s.id));
+    }
+    function getAsgns(ds, sid) { return gdd(ds).slots[sid] || []; }
+    function setAsgns(ds, sid, asgns) {
+        const d = gdd(ds);
+        setDayData(p => (Object.assign(Object.assign({}, p), { [ds]: Object.assign(Object.assign({}, d), { slots: Object.assign(Object.assign({}, d.slots), { [sid]: asgns }) }) })));
+    }
+    function getDayStats(ds) {
+        const d = gdd(ds);
+        if (d.dayType === "closed")
+            return null;
+        const sids = getAllSlotIds(ds);
+        let needed = sids.length, filled = 0, confHours = 0;
+        for (const sid of sids) {
+            const asgns = getAsgns(ds, sid);
+            if (asgns.some(a => a.guardId))
+                filled++;
+            asgns.filter(a => a.confirmed && a.guardId).forEach(a => confHours += (a.end - a.start) / 60);
+        }
+        return { needed, filled, confHours, cost: confHours * (parseFloat(rate) || 0), gap: filled < needed };
+    }
+    // ---- Assignment handling ----
+    function handleGuardChange(ds, sid, idx, newGid) {
+        const cur = getAsgns(ds, sid)[idx];
+        // Only require reason if changing a guard that was already confirmed
+        if ((cur && cur.confirmed) && cur.guardId && cur.guardId !== newGid) {
+            setPending({ ds, sid, idx, newGid, oldGid: cur.guardId });
+            setSelReason("");
+            setOtherText("");
+            return;
+        }
+        applyChange(ds, sid, idx, newGid, null);
+    }
+    function applyChange(ds, sid, idx, newGid, logEntry) {
+        const cur = getAsgns(ds, sid);
+        const def = DEFAULT_TIMES[sid] || { s: 720, e: 1125 };
+        let next;
+        if (idx >= cur.length) {
+            next = [...cur, { guardId: newGid, start: def.s, end: def.e, confirmed: false }];
+        }
+        else {
+            next = cur.map((a, i) => i === idx ? Object.assign(Object.assign({}, a), { guardId: newGid }) : a);
+        }
+        setAsgns(ds, sid, next);
+        if (logEntry)
+            setLogs(p => [logEntry, ...p]);
+        setPending(null);
+    }
+    function confirmChange() {
+        if (!selReason)
+            return;
+        if (selReason === "Other" && !otherText.trim())
+            return;
+        const { ds, sid, idx, newGid, oldGid } = pending;
+        const oldG = roster.find(g => g.id === oldGid);
+        const newG = roster.find(g => g.id === newGid);
+        const entry = {
+            id: uid(), timestamp: Date.now(), scheduleDate: ds, slotId: sid, idx,
+            action: newGid ? (oldGid ? "modified" : "assigned") : "removed",
+            oldGid, oldName: (oldG && oldG.name) || "(none)",
+            newGid, newName: (newG && newG.name) || (newGid ? "Unknown" : "(removed)"),
+            reason: selReason === "Other" ? otherText : selReason,
+            mgr: mgr || "?",
+        };
+        applyChange(ds, sid, idx, newGid, entry);
+    }
+    function updAsgn(ds, sid, idx, field, val) {
+        const next = getAsgns(ds, sid).map((a, i) => i === idx ? Object.assign(Object.assign({}, a), { [field]: val }) : a);
+        setAsgns(ds, sid, next);
+    }
+    function addSplit(ds, sid) {
+        const cur = getAsgns(ds, sid);
+        if (cur.length >= 2)
+            return;
+        const def = DEFAULT_TIMES[sid] || { s: 720, e: 1125 };
+        setAsgns(ds, sid, [...cur, { guardId: null, start: def.s, end: def.e, confirmed: false }]);
+    }
+    function removeSplit(ds, sid, idx) {
+        setAsgns(ds, sid, getAsgns(ds, sid).filter((_, i) => i !== idx));
+    }
+    // ---- Roster helpers ----
+    const activeGuards = roster.filter(g => g.active !== false);
+    const inactiveGuards = roster.filter(g => g.active === false);
+    function submitGuard() {
+        if (!form.name.trim())
+            return;
+        if (editingId) {
+            setRoster(p => p.map(g => g.id === editingId ? Object.assign(Object.assign(Object.assign({}, g), form), { name: form.name.trim() }) : g));
+            setEditingId(null);
+        }
+        else {
+            setRoster(p => [...p, { id: uid(), name: form.name.trim(), role: form.role, notes: form.notes, active: true }]);
+        }
+        setForm({ name: "", role: "guard", notes: "" });
+    }
+    function startEdit(g) {
+        setEditingId(g.id);
+        setForm({ name: g.name, role: g.role, notes: g.notes || "" });
+    }
+    // ---- CSV Import ----
+    function importCsv() {
+        const lines = csvText.split("\n").map(l => l.trim()).filter(Boolean);
+        const added = [];
+        for (const line of lines) {
+            // Support: "Name" or "Name, role" or "Name, hlg"
+            const parts = line.split(",").map(s => s.trim());
+            const name = parts[0];
+            if (!name)
+                continue;
+            const rawRole = (parts[1] || "").toLowerCase();
+            const role = rawRole.includes("head") || rawRole === "hlg" ? "hlg" : "guard";
+            // Skip duplicates
+            if (roster.find(g => g.active !== false && g.name.toLowerCase() === name.toLowerCase()))
+                continue;
+            added.push({ id: uid(), name, role, notes: "", active: true });
+        }
+        if (added.length > 0)
+            setRoster(p => [...p, ...added]);
+        setCsvText("");
+        setShowCsv(false);
+        alert(added.length + " guard" + (added.length !== 1 ? "s" : "") + " added.");
+    }
+    function deactivate(id) { setRoster(p => p.map(g => g.id === id ? Object.assign(Object.assign({}, g), { active: false }) : g)); }
+    function reactivate(id) { setRoster(p => p.map(g => g.id === id ? Object.assign(Object.assign({}, g), { active: true }) : g)); }
+    // ---- Period stats ----
+    const periodStats = days14.reduce((acc, ds) => {
+        const s = getDayStats(ds);
+        if (s) {
+            acc.hours += s.confHours;
+            acc.cost += s.cost;
+            acc.workDays++;
+            if (s.gap)
+                acc.gaps++;
+        }
+        return acc;
+    }, { hours: 0, cost: 0, workDays: 0, gaps: 0 });
+    // ---- Change log ----
+    const guardChangeCounts = {};
+    logs.forEach(l => { if (l.oldGid)
+        guardChangeCounts[l.oldGid] = (guardChangeCounts[l.oldGid] || 0) + 1; });
+    const filteredLogs = logs.filter(l => {
+        if (!logFilter)
+            return true;
+        const f = logFilter.toLowerCase();
+        return (l.oldName && l.oldName.toLowerCase().includes(f)) || (l.newName && l.newName.toLowerCase().includes(f)) || (l.slotId && l.slotId.toLowerCase().includes(f)) || (l.scheduleDate && l.scheduleDate.includes(f)) || (l.reason && l.reason.toLowerCase().includes(f));
+    });
+    // ---- Selected day ----
+    const sd = selDay;
+    const sdd = sd ? gdd(sd) : null;
+    const sdGroups = sd ? getGroups(sd) : [];
+    // ---- Styles ----
+    const INP = { background: "#0D1E35", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "7px 10px", color: "#C8E0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", width: "100%" };
+    const SEL = Object.assign(Object.assign({}, INP), { cursor: "pointer" });
+    function BTN(bg, col, extra) { return Object.assign({ cursor: "pointer", border: "none", borderRadius: "6px", padding: "8px 16px", background: bg, color: col, fontFamily: "'DM Sans',sans-serif", fontSize: "12px", fontWeight: 700, letterSpacing: "1px" }, (extra || {})); }
+    // ---- Push to Tracker ----
+    const [pushStatus, setPushStatus] = useState(null); // null | 'ok' | 'err'
+    async function pushToTracker(ds) {
+        try {
+            const d = gdd(ds);
+            // Build guards map: team -> [seg0, seg1] where each seg is array of {name,start,end}
+            const guardsOut = {};
+            for (const team of ["A", "B", "C", "D"]) {
+                const g1asgns = getAsgns(ds, team + "1");
+                const g2asgns = getAsgns(ds, team + "2");
+                const resolve = (asgns) => asgns.filter(a => a.guardId).map(a => {
+                    const g = roster.find(r => r.id === a.guardId);
+                    return { name: (g && g.name) || "", start: a.start, end: a.end };
+                });
+                guardsOut[team] = [resolve(g1asgns), resolve(g2asgns)];
+            }
+            // Build boom guards map
+            const boomOut = {};
+            for (const g of ["E", "F", "G"]) {
+                const asgns = getAsgns(ds, g);
+                boomOut[g] = asgns.filter(a => a.guardId).map(a => {
+                    const gd = roster.find(r => r.id === a.guardId);
+                    return { name: (gd && gd.name) || "", start: a.start, end: a.end };
+                });
+            }
+            // Detect any split shifts
+            const hasSplit = [...Object.values(guardsOut), ...Object.values(boomOut)].some(segs => segs.length > 1);
+            const payload = {
+                date: ds,
+                pushedAt: Date.now(),
+                chairMode: d.chairMode,
+                boomActive: d.boomActive,
+                boomStart: d.boomStart,
+                boomEnd: d.boomEnd,
+                guards: guardsOut,
+                boomGuards: boomOut,
+                hasSplit,
+            };
+            await storage.set("tracker-day-" + ds, JSON.stringify(payload));
+            setPushStatus("ok");
+            setTimeout(() => setPushStatus(null), 3000);
+        }
+        catch (e) {
+            setPushStatus("err");
+            setTimeout(() => setPushStatus(null), 3000);
+        }
+    }
+    const TABS = [{ id: "roster", label: "ROSTER" }, { id: "schedule", label: "SCHEDULE" }, { id: "log", label: "CHANGE LOG" }];
+    return (React.createElement(React.Fragment, null,
+        React.createElement("div", { style: { fontFamily: "'DM Sans',sans-serif", background: "#050E1B", minHeight: "100vh", color: "#C8E0F0" } },
+            React.createElement("header", { style: { background: "linear-gradient(160deg,#0B1E38,#050E1B)", borderBottom: "2px solid #00C2E0", padding: "14px 24px", display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" } },
+                React.createElement("div", { style: { fontSize: "34px", lineHeight: 1 } }, "\uD83D\uDCCB"),
+                React.createElement("div", { style: { flex: 1 } },
+                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "26px", letterSpacing: "4px", color: "#00D8FF", lineHeight: 1 } }, "LIFEGUARD STAFFING PLANNER"),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", marginTop: "2px" } }, "GUARD ROSTER | 2-WEEK SCHEDULE | CHANGE TRACKING")),
+                React.createElement("div", { style: { display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } },
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+                        React.createElement("span", { style: { fontSize: "10px", color: "#3A6A8A", letterSpacing: "1px", whiteSpace: "nowrap" } }, "YOUR INITIALS:"),
+                        React.createElement("input", { value: mgr, onChange: e => setMgr(e.target.value.toUpperCase().slice(0, 3)), placeholder: "MGR", maxLength: 3, style: Object.assign(Object.assign({}, INP), { width: "60px", textAlign: "center", letterSpacing: "3px", fontFamily: "'Bebas Neue'", fontSize: "15px", padding: "5px 8px" }) })),
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+                        React.createElement("span", { style: { fontSize: "10px", color: "#3A6A8A", letterSpacing: "1px", whiteSpace: "nowrap" } }, "$/HR (avg):"),
+                        React.createElement("input", { value: rate, onChange: e => setRate(e.target.value), placeholder: "0.00", type: "number", min: "0", step: "0.25", style: Object.assign(Object.assign({}, INP), { width: "80px" }) })))),
+            React.createElement("div", { style: { display: "flex", borderBottom: "1px solid #12294A", padding: "0 24px", overflowX: "auto" } }, TABS.map(({ id, label }) => (React.createElement("button", { key: id, onClick: () => setTab(id), style: { background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 700, fontSize: "11px", letterSpacing: "2px", padding: "12px 18px", marginBottom: "-1px", color: tab === id ? "#00D8FF" : "#3A6A8A", borderBottom: tab === id ? "3px solid #00D8FF" : "3px solid transparent", whiteSpace: "nowrap" } }, label)))),
+            React.createElement("div", { style: { padding: "24px" } },
+                tab === "roster" && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: "360px 1fr", gap: "24px", alignItems: "start" } },
+                    React.createElement("div", { style: { background: "#0C1B2E", border: "1px solid #12294A", borderRadius: "10px", padding: "20px", position: "sticky", top: "20px" } },
+                        React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: editingId ? "#F97316" : "#3A6A8A", marginBottom: "16px" } }, editingId ? "EDIT GUARD" : "ADD GUARD"),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "10px" } },
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "4px", letterSpacing: "1px" } }, "FULL NAME *"),
+                                React.createElement("input", { value: form.name, onChange: e => setForm(p => (Object.assign(Object.assign({}, p), { name: e.target.value }))), onKeyDown: e => e.key === "Enter" && submitGuard(), placeholder: "Guard name...", style: INP })),
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "4px", letterSpacing: "1px" } }, "ROLE"),
+                                React.createElement("select", { value: form.role, onChange: e => setForm(p => (Object.assign(Object.assign({}, p), { role: e.target.value }))), style: SEL },
+                                    React.createElement("option", { value: "guard" }, "Lifeguard"),
+                                    React.createElement("option", { value: "hlg" }, "Head Lifeguard"))),
+                            React.createElement("div", null,
+                                React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "4px", letterSpacing: "1px" } }, "NOTES"),
+                                React.createElement("input", { value: form.notes, onChange: e => setForm(p => (Object.assign(Object.assign({}, p), { notes: e.target.value }))), placeholder: "Optional...", style: INP })),
+                            React.createElement("div", { style: { display: "flex", gap: "8px", marginTop: "4px" } },
+                                React.createElement("button", { onClick: submitGuard, style: Object.assign(Object.assign({}, BTN("#00C2E0", "#000")), { flex: 1 }) }, editingId ? "SAVE CHANGES" : "ADD TO ROSTER"),
+                                editingId && React.createElement("button", { onClick: () => { setEditingId(null); setForm({ name: "", role: "guard", notes: "" }); }, style: Object.assign(Object.assign({}, BTN("#0D1E35", "#5A8AAA")), { border: "1px solid #1B3A6B" }) }, "CANCEL"))),
+                        React.createElement("div", { style: { marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #12294A", display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" } }, [{ v: activeGuards.length, l: "Total" }, { v: activeGuards.filter(g => g.role === "guard").length, l: "Guards" }, { v: activeGuards.filter(g => g.role === "hlg").length, l: "HLG" }].map(({ v, l }) => (React.createElement("div", { key: l, style: { textAlign: "center" } },
+                            React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "26px", color: "#00D8FF", lineHeight: 1 } }, v),
+                            React.createElement("div", { style: { fontSize: "9px", color: "#3A6A8A", letterSpacing: "2px" } }, l.toUpperCase()))))),
+                        Object.keys(guardChangeCounts).length > 0 && (() => {
+                            const flagged = roster.filter(g => guardChangeCounts[g.id] >= 3).sort((a, b) => (guardChangeCounts[b.id] || 0) - (guardChangeCounts[a.id] || 0));
+                            return flagged.length > 0 ? (React.createElement("div", { style: { marginTop: "16px", background: "#1A0800", border: "1px solid #FF440033", borderRadius: "8px", padding: "12px" } },
+                                React.createElement("div", { style: { fontSize: "10px", color: "#FF6633", letterSpacing: "2px", marginBottom: "8px" } }, "RELIABILITY FLAGS (3+ CHANGES)"),
+                                flagged.map(g => (React.createElement("div", { key: g.id, style: { display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #2A1000", fontSize: "12px" } },
+                                    React.createElement("span", { style: { color: "#C8E0F0" } }, g.name),
+                                    React.createElement("span", { style: { color: "#FF6633", fontWeight: 700 } },
+                                        guardChangeCounts[g.id],
+                                        "x")))))) : null;
+                        })()),
+                    React.createElement("div", null,
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" } },
+                            React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A" } },
+                                activeGuards.length,
+                                " ACTIVE GUARDS"),
+                            React.createElement("button", { onClick: () => setShowCsv(p => !p), style: { cursor: "pointer", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "6px 14px", background: "#0D1E35", color: "#00C2E0", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px" } }, "IMPORT CSV")),
+                        showCsv && (React.createElement("div", { style: { background: "#0A1828", border: "1px solid #1B3A6B", borderRadius: "8px", padding: "14px", marginBottom: "14px" } },
+                            React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", letterSpacing: "1px", marginBottom: "6px" } }, "PASTE CSV -- one guard per line: Name or Name, hlg"),
+                            React.createElement("textarea", { value: csvText, onChange: e => setCsvText(e.target.value), rows: 6, placeholder: "Jordan Smith\nAlex Rivera\nMarcus Lee, hlg\nTaylor Brown", style: { width: "100%", background: "#050E1B", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "8px 10px", color: "#C8E0F0", fontSize: "12px", fontFamily: "monospace", resize: "vertical", marginBottom: "8px" } }),
+                            React.createElement("div", { style: { display: "flex", gap: "8px" } },
+                                React.createElement("button", { onClick: importCsv, style: { cursor: "pointer", border: "none", borderRadius: "6px", padding: "7px 16px", background: "#00C2E0", color: "#000", fontFamily: "'DM Sans',sans-serif", fontSize: "12px", fontWeight: 700 } }, "IMPORT"),
+                                React.createElement("button", { onClick: () => { setShowCsv(false); setCsvText(""); }, style: { cursor: "pointer", border: "1px solid #2A3A4A", borderRadius: "6px", padding: "7px 14px", background: "none", color: "#5A8AAA", fontFamily: "'DM Sans',sans-serif", fontSize: "12px" } }, "CANCEL")),
+                            React.createElement("div", { style: { marginTop: "8px", fontSize: "10px", color: "#3A4A5A" } }, "Duplicates are skipped. Existing guards are not affected."))),
+                        React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
+                            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: "540px" } },
+                                React.createElement("thead", null,
+                                    React.createElement("tr", null, ["GUARD NAME", "ROLE", "NOTES", "CHANGES", ""].map(h => (React.createElement("th", { key: h, style: { padding: "10px 12px", background: "#0C1B2E", color: "#00D8FF", fontSize: "10px", letterSpacing: "2px", textAlign: "left", borderBottom: "2px solid #00B4D8", whiteSpace: "nowrap" } }, h))))),
+                                React.createElement("tbody", null,
+                                    activeGuards.map(g => {
+                                        const chg = guardChangeCounts[g.id] || 0;
+                                        return (React.createElement("tr", { key: g.id, className: "hovrow" },
+                                            React.createElement("td", { style: { padding: "10px 12px", borderBottom: "1px solid #0D1E35", fontWeight: 600, color: "#C8E0F0" } }, g.name),
+                                            React.createElement("td", { style: { padding: "10px 12px", borderBottom: "1px solid #0D1E35" } },
+                                                React.createElement(RolePill, { role: g.role })),
+                                            React.createElement("td", { style: { padding: "10px 12px", borderBottom: "1px solid #0D1E35", fontSize: "12px", color: "#5A8AAA", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.notes || "-"),
+                                            React.createElement("td", { style: { padding: "10px 12px", borderBottom: "1px solid #0D1E35" } },
+                                                chg > 0 && React.createElement("span", { style: { fontSize: "12px", fontWeight: 700, color: chg >= 5 ? "#FF4444" : chg >= 3 ? "#F97316" : "#F1C40F" } },
+                                                    chg,
+                                                    "x"),
+                                                chg === 0 && React.createElement("span", { style: { fontSize: "12px", color: "#3A4A5A" } }, "-")),
+                                            React.createElement("td", { style: { padding: "10px 12px", borderBottom: "1px solid #0D1E35" } },
+                                                React.createElement("div", { style: { display: "flex", gap: "6px" } },
+                                                    React.createElement("button", { onClick: () => startEdit(g), style: Object.assign({}, BTN("#0D1E35", "#5A8AAA", { border: "1px solid #1B3A6B", padding: "4px 10px", fontSize: "11px" })) }, "EDIT"),
+                                                    React.createElement("button", { onClick: () => deactivate(g.id), style: Object.assign({}, BTN("#1A0808", "#CC4444", { border: "1px solid #3A1A1A", padding: "4px 10px", fontSize: "11px" })) }, "DEACTIVATE")))));
+                                    }),
+                                    activeGuards.length === 0 && (React.createElement("tr", null,
+                                        React.createElement("td", { colSpan: 5, style: { padding: "40px", textAlign: "center", color: "#3A4A5A", fontStyle: "italic" } }, "No guards yet. Add your first guard above or use Import CSV.")))))),
+                        inactiveGuards.length > 0 && (React.createElement("div", { style: { marginTop: "16px" } },
+                            React.createElement("button", { onClick: () => setShowInactive(p => !p), style: Object.assign({}, BTN("none", "#5A8AAA", { border: "1px solid #1B3A6B", fontSize: "11px", padding: "6px 14px" })) },
+                                showInactive ? "HIDE" : "SHOW",
+                                " INACTIVE (",
+                                inactiveGuards.length,
+                                ")"),
+                            showInactive && (React.createElement("div", { style: { marginTop: "10px", overflowX: "auto", borderRadius: "8px", border: "1px solid #12294A", opacity: 0.7 } },
+                                React.createElement("table", { style: { width: "100%", borderCollapse: "collapse" } },
+                                    React.createElement("tbody", null, inactiveGuards.map(g => (React.createElement("tr", { key: g.id },
+                                        React.createElement("td", { style: { padding: "8px 12px", borderBottom: "1px solid #0D1E35", color: "#5A8AAA" } }, g.name),
+                                        React.createElement("td", { style: { padding: "8px 12px", borderBottom: "1px solid #0D1E35" } },
+                                            React.createElement(RolePill, { role: g.role })),
+                                        React.createElement("td", { style: { padding: "8px 12px", borderBottom: "1px solid #0D1E35" } },
+                                            React.createElement("button", { onClick: () => reactivate(g.id), style: Object.assign({}, BTN("#003318", "#2ECC71", { border: "1px solid #2ECC7144", padding: "3px 10px", fontSize: "11px" })) }, "RESTORE")))))))))))))),
+                tab === "schedule" && (React.createElement("div", null,
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "18px", flexWrap: "wrap" } },
+                        React.createElement("button", { onClick: () => setPeriodStart(p => addDays(p, -14)), style: Object.assign({}, BTN("#0C1B2E", "#5A8AAA", { border: "1px solid #1B3A6B", padding: "7px 14px" })) }, "PREV"),
+                        React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "18px", color: "#00D8FF", letterSpacing: "2px", flex: 1, textAlign: "center" } },
+                            fmtDate(periodStart),
+                            " - ",
+                            fmtDate(addDays(periodStart, 13))),
+                        React.createElement("button", { onClick: () => setPeriodStart(p => addDays(p, 14)), style: Object.assign({}, BTN("#0C1B2E", "#5A8AAA", { border: "1px solid #1B3A6B", padding: "7px 14px" })) }, "NEXT"),
+                        React.createElement("button", { onClick: () => setPeriodStart(getThisMonday()), style: Object.assign({}, BTN("#00C2E0", "#000", { padding: "7px 14px" })) }, "TODAY")),
+                    React.createElement("div", { style: { background: "#0C1B2E", border: "1px solid #12294A", borderRadius: "8px", padding: "10px 20px", marginBottom: "18px", display: "flex", gap: "20px", flexWrap: "wrap", alignItems: "center" } },
+                        React.createElement("span", { style: { fontSize: "10px", letterSpacing: "3px", color: "#3A6A8A" } }, "2-WEEK:"),
+                        React.createElement("span", { style: { fontSize: "13px", color: "#C8E0F0" } },
+                            periodStats.workDays,
+                            " work days"),
+                        React.createElement("span", { style: { fontSize: "13px", color: "#2ECC71", fontWeight: 700 } },
+                            periodStats.hours.toFixed(1),
+                            " guard-hours confirmed"),
+                        parseFloat(rate) > 0 && React.createElement("span", { style: { fontSize: "13px", color: "#F1C40F", fontWeight: 700 } },
+                            "$",
+                            periodStats.cost.toFixed(0),
+                            " est. labor"),
+                        periodStats.gaps > 0 && React.createElement("span", { style: { fontSize: "12px", color: "#FF6B35", fontWeight: 700 } },
+                            periodStats.gaps,
+                            " day",
+                            periodStats.gaps > 1 ? "s" : "",
+                            " with open slots"),
+                        roster.length === 0 && React.createElement("span", { style: { fontSize: "11px", color: "#664400", fontStyle: "italic" } }, "Add guards in the ROSTER tab first")),
+                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: "8px", marginBottom: "20px" } },
+                        ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map(d => (React.createElement("div", { key: d, style: { textAlign: "center", fontSize: "9px", letterSpacing: "2px", color: "#3A6A8A", paddingBottom: "4px" } }, d))),
+                        days14.map(ds => {
+                            const d = gdd(ds);
+                            const stats = getDayStats(ds);
+                            const isToday = ds === todayStr();
+                            const isSel = ds === selDay;
+                            const dtm = DAY_META[d.dayType] || DAY_META.normal;
+                            const cmm = CHAIR_META[d.chairMode];
+                            return (React.createElement("div", { key: ds, className: "daytile" + (isSel ? " selected" : ""), onClick: () => setSelDay(isSel ? null : ds), style: { background: isSel ? "#0D1B30" : dtm.bg, border: "1px solid " + (isSel ? "#00D8FF" : isToday ? "#00D8FF55" : "#12294A"), borderRadius: "8px", padding: "10px 8px", minHeight: "95px" } },
+                                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "5px" } },
+                                    React.createElement("span", { style: { fontSize: "11px", fontWeight: 700, color: isToday ? "#00D8FF" : "#C8E0F0" } }, fmtDateShort(ds)),
+                                    isToday && React.createElement("span", { style: { fontSize: "8px", background: "#00D8FF", color: "#000", borderRadius: "3px", padding: "1px 4px", letterSpacing: "1px" } }, "TODAY")),
+                                React.createElement(DayPill, { type: d.dayType }),
+                                d.dayType !== "closed" && (React.createElement(React.Fragment, null,
+                                    React.createElement("div", { style: { fontSize: "10px", color: "#3A6A8A", marginTop: "4px", color: (cmm && cmm.color) || "#5A8AAA" } },
+                                        (cmm && cmm.label),
+                                        d.boomActive ? " + Boom" : ""),
+                                    stats && (React.createElement("div", { style: { marginTop: "6px" } },
+                                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "10px" } },
+                                            React.createElement("span", { style: { color: stats.gap ? "#FF6B35" : "#2ECC71", fontWeight: 700 } },
+                                                stats.filled,
+                                                "/",
+                                                stats.needed,
+                                                " filled"),
+                                            stats.confHours > 0 && React.createElement("span", { style: { color: "#5A8AAA" } },
+                                                stats.confHours.toFixed(1),
+                                                "h")),
+                                        React.createElement(HoursBar, { filled: stats.filled, needed: stats.needed, color: stats.gap ? "#FF6B35" : "#2ECC71" })))))));
+                        })),
+                    sd && sdd && (React.createElement("div", { style: { background: "#0C1B2E", border: "1px solid #1B3A6B", borderRadius: "12px", padding: "20px" } },
+                        React.createElement("div", { style: { display: "flex", gap: "10px", alignItems: "center", marginBottom: "20px", flexWrap: "wrap" } },
+                            React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "20px", color: "#00D8FF", letterSpacing: "3px", marginRight: "4px" } }, fmtDate(sd)),
+                            React.createElement("div", { className: "modebtns", style: { display: "flex" } }, Object.entries(DAY_META).map(([k, v]) => (React.createElement("button", { key: k, className: sdd.dayType === k ? "on" : "", onClick: () => setDayField(sd, "dayType", k), style: { color: sdd.dayType === k ? "#000" : v.color, background: sdd.dayType === k ? v.color : "none", borderColor: sdd.dayType === k ? v.color : "#1B3A6B" } }, v.label)))),
+                            sdd.dayType !== "closed" && React.createElement(React.Fragment, null,
+                                React.createElement("div", { className: "modebtns", style: { display: "flex" } }, [2, 3, 4].map(m => (React.createElement("button", { key: m, className: sdd.chairMode === m ? "on" : "", onClick: () => setDayField(sd, "chairMode", m), style: { color: sdd.chairMode === m ? "#000" : ((CHAIR_META[m] && CHAIR_META[m].color) || "#5A8AAA"), background: sdd.chairMode === m ? ((CHAIR_META[m] && CHAIR_META[m].color) || "#00C2E0") : "none", borderColor: sdd.chairMode === m ? ((CHAIR_META[m] && CHAIR_META[m].color) || "#00C2E0") : "#1B3A6B" } }, CHAIR_META[m].label)))),
+                                sdd.chairMode === 4 && (React.createElement("button", { onClick: () => setDayField(sd, "boomActive", !sdd.boomActive), style: Object.assign({}, BTN(sdd.boomActive ? "#E879F9" : "none", sdd.boomActive ? "#000" : "#E879F9", { border: "2px solid " + (sdd.boomActive ? "#E879F9" : "#4A1A6A"), padding: "5px 14px" })) }, sdd.boomActive ? "BOOM ON" : "+ BOOM")),
+                                sdd.chairMode === 4 && sdd.boomActive && (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px", background: "#0D0820", border: "1px solid #4A1A6A", borderRadius: "6px", padding: "4px 10px" } },
+                                    React.createElement("span", { style: { fontSize: "9px", color: "#9B30D0", letterSpacing: "1px" } }, "BOOM:"),
+                                    React.createElement("select", { value: sdd.boomStart, onChange: e => setDayField(sd, "boomStart", Number(e.target.value)), style: Object.assign(Object.assign({}, SEL), { width: "auto", background: "transparent", border: "none", color: "#E879F9", fontSize: "12px", padding: "2px" }) }, TIME_OPTS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label))),
+                                    React.createElement("span", { style: { color: "#4A1A6A", fontSize: "12px" } }, "to"),
+                                    React.createElement("select", { value: sdd.boomEnd, onChange: e => setDayField(sd, "boomEnd", Number(e.target.value)), style: Object.assign(Object.assign({}, SEL), { width: "auto", background: "transparent", border: "none", color: "#E879F9", fontSize: "12px", padding: "2px" }) }, TIME_OPTS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label)))))),
+                            React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", marginLeft: "auto" } },
+                                React.createElement("button", { onClick: () => pushToTracker(sd), style: Object.assign({}, BTN(pushStatus === "ok" ? "#003318" : pushStatus === "err" ? "#3A0808" : "#0D1E35", pushStatus === "ok" ? "#2ECC71" : pushStatus === "err" ? "#FF4444" : "#2ECC71", { border: "2px solid " + (pushStatus === "ok" ? "#2ECC71" : pushStatus === "err" ? "#FF4444" : "#2ECC7155"), padding: "5px 14px", fontSize: "11px", whiteSpace: "nowrap" })) }, pushStatus === "ok" ? "SENT TO TRACKER" : pushStatus === "err" ? "ERROR - RETRY" : "SEND TO TRACKER"),
+                                React.createElement("button", { onClick: () => setSelDay(null), style: Object.assign({}, BTN("none", "#5A8AAA", { border: "1px solid #2A3A4A", padding: "5px 12px", fontSize: "11px" })) }, "CLOSE"))),
+                        sdd.dayType === "closed" && (React.createElement("div", { style: { textAlign: "center", padding: "40px", color: "#3A4A5A" } }, "Pool closed. No staffing needed.")),
+                        sdd.dayType !== "closed" && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "24px" } }, sdGroups.map(grp => {
+                            const isBoom = grp === BOOM_GROUP;
+                            const gcol = grp.color;
+                            return (React.createElement("div", { key: grp.group },
+                                React.createElement("div", { style: { fontSize: "10px", letterSpacing: "3px", color: gcol, marginBottom: "10px", paddingBottom: "6px", borderBottom: "1px solid " + gcol + "33", display: "flex", alignItems: "center", gap: "10px" } },
+                                    grp.group,
+                                    isBoom && sdd.boomActive && React.createElement("span", { style: { fontSize: "10px", color: "#6A3A8A", fontStyle: "italic" } },
+                                        fmtTime(sdd.boomStart),
+                                        " - ",
+                                        fmtTime(sdd.boomEnd))),
+                                grp.slots.map(slot => {
+                                    const asgns = getAsgns(sd, slot.id);
+                                    const teamCol = slot.team ? TEAM_COLORS[slot.team] : gcol;
+                                    return (React.createElement("div", { key: slot.id, className: "slotcard", style: { borderColor: isBoom ? "#2D1040" : "#12294A" } },
+                                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" } },
+                                            React.createElement("div", null,
+                                                slot.team && React.createElement(TeamDot, { team: slot.team, size: 18 }),
+                                                React.createElement("span", { style: { fontWeight: 600, color: "#C8E0F0", marginLeft: slot.team ? "7px" : "0", fontSize: "13px" } }, slot.label),
+                                                React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A", marginLeft: "8px" } }, slot.stations)),
+                                            asgns.length < 2 && (React.createElement("button", { onClick: () => addSplit(sd, slot.id), style: Object.assign({}, BTN("#0D1E35", "#5A8AAA", { border: "1px solid #1B3A6B", padding: "4px 10px", fontSize: "10px", letterSpacing: "1px" })) }, "+ SPLIT"))),
+                                        asgns.length === 0 && (React.createElement("select", { value: "", onChange: e => { if (e.target.value)
+                                                handleGuardChange(sd, slot.id, 0, e.target.value); }, style: Object.assign(Object.assign({}, SEL), { borderColor: isBoom ? "#4A1A6A" : "#1B3A6B", background: isBoom ? "#0D0820" : "#0D1E35", color: "#5A8AAA" }) },
+                                            React.createElement("option", { value: "" }, "-- Assign guard --"),
+                                            activeGuards.map(g => React.createElement("option", { key: g.id, value: g.id },
+                                                g.name,
+                                                " (",
+                                                (ROLE_META[g.role] && ROLE_META[g.role].label) || g.role,
+                                                ")")))),
+                                        asgns.map((a, i) => {
+                                            const g = roster.find(r => r.id === a.guardId);
+                                            const splitHours = ((a.end - a.start) / 60).toFixed(1);
+                                            return (React.createElement("div", { key: i, style: { display: "flex", gap: "7px", alignItems: "center", flexWrap: "wrap", paddingTop: i > 0 ? "10px" : "0", borderTop: i > 0 ? "1px dashed #1A2A3A" : "none", marginTop: i > 0 ? "2px" : "0" } },
+                                                i > 0 && React.createElement("span", { style: { fontSize: "10px", color: "#4A6A8A", letterSpacing: "1px", whiteSpace: "nowrap", flexShrink: 0 } }, "THEN:"),
+                                                React.createElement("select", { value: a.guardId || "", onChange: e => handleGuardChange(sd, slot.id, i, e.target.value || null), style: Object.assign(Object.assign({}, SEL), { flex: "2 1 120px", minWidth: "120px", borderColor: a.confirmed ? (teamCol + "88") : (isBoom ? "#4A1A6A" : "#1B3A6B"), background: isBoom ? "#0D0820" : "#0D1E35", color: g ? (isBoom ? "#C8A0E0" : "#C8E0F0") : "#5A8AAA" }) },
+                                                    React.createElement("option", { value: "" }, "-- No guard --"),
+                                                    activeGuards.map(gd => React.createElement("option", { key: gd.id, value: gd.id }, gd.name))),
+                                                React.createElement("select", { value: a.start, onChange: e => updAsgn(sd, slot.id, i, "start", Number(e.target.value)), style: Object.assign(Object.assign({}, SEL), { flex: "1 1 80px", minWidth: "80px", background: isBoom ? "#0D0820" : "#0D1E35", color: isBoom ? "#C8A0E0" : "#C8E0F0", borderColor: isBoom ? "#4A1A6A" : "#1B3A6B" }) }, TIME_OPTS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label))),
+                                                React.createElement("span", { style: { color: "#3A4A5A", flexShrink: 0 } }, "-"),
+                                                React.createElement("select", { value: a.end, onChange: e => updAsgn(sd, slot.id, i, "end", Number(e.target.value)), style: Object.assign(Object.assign({}, SEL), { flex: "1 1 80px", minWidth: "80px", background: isBoom ? "#0D0820" : "#0D1E35", color: isBoom ? "#C8A0E0" : "#C8E0F0", borderColor: isBoom ? "#4A1A6A" : "#1B3A6B" }) }, TIME_OPTS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label))),
+                                                React.createElement("span", { style: { fontSize: "11px", color: "#4A6A8A", flexShrink: 0, whiteSpace: "nowrap" } },
+                                                    splitHours,
+                                                    "h"),
+                                                React.createElement("button", { onClick: () => updAsgn(sd, slot.id, i, "confirmed", !a.confirmed), style: Object.assign({}, BTN(a.confirmed ? (isBoom ? "#1A0040" : "#003318") : "none", a.confirmed ? (isBoom ? "#E879F9" : "#2ECC71") : (isBoom ? "#6A3A8A" : "#3A6A8A"), { border: "1px solid " + (a.confirmed ? (isBoom ? "#E879F9" : "#2ECC71") : "#2A3A4A"), flexShrink: 0, padding: "5px 10px", fontSize: "11px" })) }, a.confirmed ? "CONF" : "PEND"),
+                                                asgns.length > 1 && (React.createElement("button", { onClick: () => removeSplit(sd, slot.id, i), style: Object.assign({}, BTN("#1A0808", "#CC4444", { border: "1px solid #3A1A1A", flexShrink: 0, padding: "5px 9px", fontSize: "12px" })) }, "X"))));
+                                        })));
+                                })));
+                        }))))))),
+                tab === "log" && (React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 280px", gap: "20px", alignItems: "start" } },
+                    React.createElement("div", null,
+                        React.createElement("div", { style: { display: "flex", gap: "10px", marginBottom: "16px", alignItems: "center", flexWrap: "wrap" } },
+                            React.createElement("input", { value: logFilter, onChange: e => setLogFilter(e.target.value), placeholder: "Filter by name, date, slot, or reason...", style: Object.assign(Object.assign({}, INP), { flex: 1 }) }),
+                            React.createElement("span", { style: { fontSize: "12px", color: "#5A8AAA", whiteSpace: "nowrap" } },
+                                filteredLogs.length,
+                                " entries"),
+                            logs.length > 0 && (React.createElement("button", { onClick: () => { if (window.confirm("Clear entire change log? This cannot be undone."))
+                                    setLogs([]); }, style: Object.assign({}, BTN("none", "#CC4444", { border: "1px solid #3A1A1A", fontSize: "11px", padding: "6px 12px" })) }, "CLEAR ALL"))),
+                        filteredLogs.length === 0 && (React.createElement("div", { style: { textAlign: "center", padding: "50px 20px", color: "#3A4A5A", fontStyle: "italic", border: "1px dashed #12294A", borderRadius: "8px" } }, logs.length === 0 ? "No changes logged yet. Changes to confirmed assignments will be recorded here." : "No results match your filter.")),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "8px" } }, filteredLogs.map(entry => (React.createElement("div", { key: entry.id, style: { background: "#0C1B2E", border: "1px solid #12294A", borderRadius: "8px", padding: "14px" } },
+                            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "6px", flexWrap: "wrap", gap: "6px" } },
+                                React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" } },
+                                    React.createElement("span", { style: { fontFamily: "'Bebas Neue'", fontSize: "14px", color: "#00D8FF", letterSpacing: "1px" } }, fmtDate(entry.scheduleDate)),
+                                    React.createElement("span", { style: { fontSize: "10px", background: "#0D1E35", border: "1px solid #1B3A6B", borderRadius: "4px", padding: "2px 7px", color: "#5A8AAA", fontFamily: "'Bebas Neue'", letterSpacing: "1px" } }, entry.slotId),
+                                    React.createElement("span", { style: { fontSize: "11px", color: entry.action === "removed" ? "#CC4444" : entry.action === "assigned" ? "#2ECC71" : "#F97316", fontWeight: 700 } }, entry.action.toUpperCase())),
+                                React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
+                                    React.createElement("span", { style: { fontSize: "11px", color: "#3A4A5A" } }, fmtTs(entry.timestamp)),
+                                    React.createElement("span", { style: { fontSize: "11px", background: "#0D1E35", borderRadius: "4px", padding: "2px 7px", color: "#8AAFCC", fontFamily: "'Bebas Neue'", letterSpacing: "1px" } }, entry.mgr))),
+                            React.createElement("div", { style: { fontSize: "12px", color: "#8AAFCC", marginBottom: "5px" } },
+                                React.createElement("span", { style: { color: "#CC7777" } }, entry.oldName),
+                                React.createElement("span", { style: { color: "#3A4A5A", margin: "0 8px" } }, "replaced by"),
+                                React.createElement("span", { style: { color: "#77CC99" } }, entry.newName)),
+                            React.createElement("div", { style: { fontSize: "11px", color: "#5A7A6A", fontStyle: "italic" } },
+                                "Reason: ",
+                                entry.reason)))))),
+                    React.createElement("div", { style: { background: "#0C1B2E", border: "1px solid #12294A", borderRadius: "10px", padding: "16px", position: "sticky", top: "20px" } },
+                        React.createElement("div", { style: { fontSize: "10px", letterSpacing: "3px", color: "#3A6A8A", marginBottom: "14px" } }, "GUARD CHANGE HISTORY"),
+                        roster.filter(g => guardChangeCounts[g.id]).sort((a, b) => (guardChangeCounts[b.id] || 0) - (guardChangeCounts[a.id] || 0)).map(g => {
+                            const c = guardChangeCounts[g.id] || 0;
+                            const col = c >= 5 ? "#FF4444" : c >= 3 ? "#F97316" : "#F1C40F";
+                            return (React.createElement("div", { key: g.id, style: { marginBottom: "12px" } },
+                                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "3px" } },
+                                    React.createElement("span", { style: { fontSize: "12px", color: "#C8E0F0" } }, g.name),
+                                    React.createElement("span", { style: { fontSize: "12px", fontWeight: 700, color: col } },
+                                        c,
+                                        "x")),
+                                React.createElement("div", { style: { background: "#08121E", borderRadius: "3px", height: "5px", overflow: "hidden" } },
+                                    React.createElement("div", { style: { width: Math.min(100, (c / 8) * 100) + "%", height: "100%", background: col, borderRadius: "3px" } }))));
+                        }),
+                        Object.keys(guardChangeCounts).length === 0 && (React.createElement("div", { style: { fontSize: "12px", color: "#3A4A5A", fontStyle: "italic" } }, "No change history yet.")),
+                        React.createElement("div", { style: { borderTop: "1px solid #12294A", paddingTop: "12px", marginTop: "16px", fontSize: "11px", color: "#4A5A6A", lineHeight: 1.8 } },
+                            React.createElement("div", { style: { color: "#F1C40F", marginBottom: "2px" } }, "3+ changes: monitor"),
+                            React.createElement("div", { style: { color: "#F97316", marginBottom: "2px" } }, "5+ changes: flag"),
+                            React.createElement("div", { style: { color: "#FF4444" } }, "7+ changes: discuss"))))))),
+        pending && (React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" } },
+            React.createElement("div", { style: { background: "#0C1B2E", border: "2px solid #F97316", borderRadius: "12px", padding: "24px", maxWidth: "460px", width: "100%", maxHeight: "90vh", overflowY: "auto" } },
+                React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "20px", color: "#F97316", letterSpacing: "3px", marginBottom: "6px" } }, "LOG THIS CHANGE"),
+                React.createElement("div", { style: { fontSize: "12px", color: "#5A8AAA", marginBottom: "18px" } }, "This guard was confirmed. A reason is required before making this change."),
+                React.createElement("div", { style: { background: "#08121E", borderRadius: "8px", padding: "12px", marginBottom: "18px", fontSize: "12px" } },
+                    React.createElement("div", { style: { marginBottom: "4px" } },
+                        "Slot: ",
+                        React.createElement("span", { style: { color: "#00D8FF", fontWeight: 700 } }, pending.slotId),
+                        React.createElement("span", { style: { color: "#3A4A5A", margin: "0 8px" } }, "|"),
+                        fmtDate(pending.ds)),
+                    React.createElement("div", null,
+                        React.createElement("span", { style: { color: "#CC7777" } }, (roster.find(g => g.id === pending.oldGid) || { name: "Unknown" }).name),
+                        React.createElement("span", { style: { color: "#3A4A5A", margin: "0 8px" } }, "->"),
+                        React.createElement("span", { style: { color: "#77CC99" } }, pending.newGid ? (roster.find(g => g.id === pending.newGid) || { name: "Unknown" }).name : "(removed)"))),
+                React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "8px" } }, "REASON"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "5px", marginBottom: "14px" } }, CHANGE_REASONS.map(r => (React.createElement("button", { key: r, onClick: () => setSelReason(r), style: Object.assign({}, BTN(selReason === r ? "#F97316" : "#08121E", selReason === r ? "#000" : "#8AAFCC", { border: "1px solid " + (selReason === r ? "#F97316" : "#1B3A6B"), textAlign: "left", padding: "8px 14px", fontSize: "12px", letterSpacing: "normal", fontWeight: selReason === r ? 700 : 400 })) }, r)))),
+                selReason === "Other" && (React.createElement("input", { value: otherText, onChange: e => setOtherText(e.target.value), placeholder: "Describe the reason...", style: Object.assign(Object.assign({}, INP), { marginBottom: "14px" }) })),
+                React.createElement("div", { style: { display: "flex", gap: "10px", justifyContent: "flex-end" } },
+                    React.createElement("button", { onClick: () => setPending(null), style: Object.assign({}, BTN("none", "#5A8AAA", { border: "1px solid #2A3A4A" })) }, "CANCEL"),
+                    React.createElement("button", { onClick: confirmChange, disabled: !selReason || (selReason === "Other" && !otherText.trim()), style: Object.assign({}, BTN((!selReason || (selReason === "Other" && !otherText.trim())) ? "#2A2A2A" : "#F97316", (!selReason || (selReason === "Other" && !otherText.trim())) ? "#555" : "#000")) }, "LOG AND APPLY")))))));
+}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>
