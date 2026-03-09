@@ -47,14 +47,9 @@
         .tog{background:none;border:1px solid #14532D;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;padding:7px 16px;transition:all .2s;}
       
   </style>
-  <script>
-    window.addEventListener('error', function(e) {
-      document.body.innerHTML = '<div style="background:#1a0000;color:#ff8888;padding:30px;font-family:monospace;font-size:13px;white-space:pre-wrap"><b>ERROR:</b> ' + e.message + '<br><b>Line:</b> ' + e.lineno + '<br><b>File:</b> ' + e.filename + '<br><br>' + (e.error && e.error.stack ? e.error.stack : '') + '</div>';
-    });
-  </script>
 </head>
 <body>
-  <div id="root"><div style="color:white;padding:40px;font-family:monospace;font-size:16px">Loading... if you see this for more than 3 seconds, JS failed to run.</div></div>
+  <div id="root"></div>
   <script type="text/javascript">
     const { useState, useEffect } = React;
 
