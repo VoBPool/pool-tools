@@ -113,11 +113,11 @@ const SCHEDULE = (() => {
   const rows = [];
   for (const s of ACTIVE_SLOTS) {
     const status  = HOUR_STATUS[s.h];
-    const bullpen = TEAMS.find(t => t!==s.ch1ch4 && t!==s.slDv && t!==status?.out) || null;
+    const bullpen = TEAMS.find(t => t!==s.ch1ch4 && t!==s.slDv && t!==(status&&status.out)) || null;
     const chair5Conflict = s.m===0 || s.m===15;
     const boom = boomActive(s.h) ? BOOM_CYCLE[s.m] : null;
     rows.push({ h:s.h, m:s.m, type:"active", ch1ch4:s.ch1ch4, slDv:s.slDv,
-                bullpen, outTeam:status?.out, outReason:status?.reason,
+                bullpen, outTeam:status&&status.out, outReason:status&&status.reason,
                 chair5Conflict, boom });
   }
   for (const r of REST_TIMES) {
@@ -278,7 +278,7 @@ function App(){
                     const seg=segs[i];
                     if(!seg) return g;
                     // primary segment (first one)
-                    return {name:seg[0]?.name||"",start:seg[0]?.start||g.start,end:seg[0]?.end||g.end};
+                    return {name:(seg[0]&&seg[0].name)||"",start:(seg[0]&&seg[0].start)||g.start,end:(seg[0]&&seg[0].end)||g.end};
                   });
                 }
               });
@@ -310,7 +310,7 @@ function App(){
           setGuards(prev=>{
             const next={...prev};
             Object.entries(d.guards).forEach(([team,segs])=>{
-              if(next[team]) next[team]=next[team].map((g,i)=>{ const s=segs[i]; return s?{name:s[0]?.name||"",start:s[0]?.start||g.start,end:s[0]?.end||g.end}:g; });
+              if(next[team]) next[team]=next[team].map((g,i)=>{ const s=segs[i]; return s?{name:(s[0]&&s[0].name)||"",start:(s[0]&&s[0].start)||g.start,end:(s[0]&&s[0].end)||g.end}:g; });
             });
             return next;
           });
@@ -344,7 +344,7 @@ function App(){
   const soFar=computeMinutes(nowMin,slotModes);
   const DS=minsView==="sofar"?soFar:fullDay;
   const maxActive=Math.max(...TEAMS.map(t=>fullDay[t].totalActive),1);
-  const maxBoom=Math.max(...BOOM_GUARDS.map(g=>fullDay[g]?.totalActive||0),1);
+  const maxBoom=Math.max(...BOOM_GUARDS.map(g=>(fullDay[g]&&fullDay[g].totalActive)||0),1);
 
   function upd(team,idx,field,val){ setGuards(p=>({...p,[team]:p[team].map((g,i)=>i===idx?{...g,[field]:val}:g)})); }
   function updBoom(guard,field,val){ setBoomGuards(p=>({...p,[guard]:{...p[guard],[field]:val}})); }
@@ -388,8 +388,8 @@ function App(){
           </div>
           <div style={{textAlign:"right"}}>
             <div style={{fontFamily:"'Bebas Neue'",fontSize:"34px",color:"#22C55E",lineHeight:1}}>{fmt(ch,cm)}</div>
-            <div style={{fontSize:"11px",letterSpacing:"2px",marginTop:"2px",color:!isOpen?"#4A7A5A":curSlot?.type==="rest"?"#FF4444":"#2ECC71"}}>
-              {!isOpen?"POOL CLOSED":curSlot?.type==="rest"?"REST BREAK":"POOL OPEN"}
+            <div style={{fontSize:"11px",letterSpacing:"2px",marginTop:"2px",color:!isOpen?"#4A7A5A":curSlot&&curSlot.type==="rest"?"#FF4444":"#2ECC71"}}>
+              {!isOpen?"POOL CLOSED":curSlot&&curSlot.type==="rest"?"REST BREAK":"POOL OPEN"}
             </div>
             {plannerInfo&&<div style={{fontSize:"10px",color:"#2ECC71",letterSpacing:"1px",marginTop:"3px",display:"flex",alignItems:"center",gap:"5px",justifyContent:"flex-end"}}>
               <span style={{background:"#003318",border:"1px solid #2ECC7155",borderRadius:"3px",padding:"1px 6px"}}>PLANNER SYNCED</span>
@@ -398,7 +398,7 @@ function App(){
         </header>
 
         {/* LIVE BANNER */}
-        {isOpen&&curSlot?.type==="active"&&(()=>{
+        {isOpen&&curSlot&&curSlot.type==="active"&&(()=>{
           const {ch1ch4,slDv,bullpen,outTeam,outReason,h,m,chair5Conflict}=curSlot;
           const sm2=h*60+m, slotKey=h*100+m, mode=getMode(slotKey);
           const boom=mode==="boom"?BOOM_CYCLE[m]:null;
@@ -440,7 +440,7 @@ function App(){
         })()}
 
         {/* REST BANNER */}
-        {isOpen&&curSlot?.type==="rest"&&(()=>{
+        {isOpen&&curSlot&&curSlot.type==="rest"&&(()=>{
           const{rSlide,rConcession,closing,boomSupport}=curSlot;
           const sm2=curSlot.h*60+45;
           const bn=(g)=>{const gd=boomGuards[g];return gd.name.trim()&&sm2>=gd.start&&sm2<=gd.end?gd.name:null;};
@@ -639,7 +639,7 @@ function App(){
                   <thead><tr>{["REST BREAK","SLIDE","SLIDE +1","CONCESSION","CONC +1","BOOM REST"].map(h=><th key={h} style={TH0}>{h}</th>)}</tr></thead>
                   <tbody>
                     {SCHEDULE.filter(s=>s.type==="rest"&&!s.closing).map((slot,i)=>{
-                      const isCur=isOpen&&curSlot?.type==="rest"&&curSlot.h===slot.h;
+                      const isCur=isOpen&&curSlot&&curSlot.type==="rest"&&curSlot.h===slot.h;
                       const sm2=slot.h*60+45;
                       return <tr key={i} className="trh" style={{borderLeft:isCur?"3px solid #FF6B35":"3px solid transparent",background:isCur?"rgba(255,100,0,0.07)":"transparent"}}>
                         <td style={{...TD,fontWeight:600,color:isCur?"#FF9040":"#C8E0F0",whiteSpace:"nowrap"}}>{fmt(slot.h,45)}{isCur&&<NowTag/>}</td>

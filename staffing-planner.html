@@ -280,7 +280,7 @@ function App() {
   function handleGuardChange(ds,sid,idx,newGid) {
     const cur=getAsgns(ds,sid)[idx];
     // Only require reason if changing a guard that was already confirmed
-    if(cur?.confirmed&&cur.guardId&&cur.guardId!==newGid) {
+    if((cur&&cur.confirmed)&&cur.guardId&&cur.guardId!==newGid) {
       setPending({ds,sid,idx,newGid,oldGid:cur.guardId});
       setSelReason(""); setOtherText("");
       return;
@@ -311,8 +311,8 @@ function App() {
     const entry={
       id:uid(), timestamp:Date.now(), scheduleDate:ds, slotId:sid, idx,
       action:newGid?(oldGid?"modified":"assigned"):"removed",
-      oldGid, oldName:oldG?.name||"(none)",
-      newGid, newName:newG?.name||(newGid?"Unknown":"(removed)"),
+      oldGid, oldName:(oldG&&oldG.name)||"(none)",
+      newGid, newName:(newG&&newG.name)||(newGid?"Unknown":"(removed)"),
       reason:selReason==="Other"?otherText:selReason,
       mgr:mgr||"?",
     };
@@ -393,7 +393,7 @@ function App() {
   const filteredLogs=logs.filter(l=>{
     if(!logFilter) return true;
     const f=logFilter.toLowerCase();
-    return l.oldName?.toLowerCase().includes(f)||l.newName?.toLowerCase().includes(f)||l.slotId?.toLowerCase().includes(f)||l.scheduleDate?.includes(f)||l.reason?.toLowerCase().includes(f);
+    return l.(oldName&&oldName.toLowerCase)().includes(f)||l.(newName&&newName.toLowerCase)().includes(f)||l.(slotId&&slotId.toLowerCase)().includes(f)||l.(scheduleDate&&scheduleDate.includes)(f)||l.(reason&&reason.toLowerCase)().includes(f);
   });
 
   // ---- Selected day ----
@@ -419,7 +419,7 @@ function App() {
         const g2asgns = getAsgns(ds, team+"2");
         const resolve = (asgns) => asgns.filter(a=>a.guardId).map(a=>{
           const g=roster.find(r=>r.id===a.guardId);
-          return {name:g?.name||"",start:a.start,end:a.end};
+          return {name:(g&&g.name)||"",start:a.start,end:a.end};
         });
         guardsOut[team] = [resolve(g1asgns), resolve(g2asgns)];
       }
@@ -429,7 +429,7 @@ function App() {
         const asgns = getAsgns(ds, g);
         boomOut[g] = asgns.filter(a=>a.guardId).map(a=>{
           const gd=roster.find(r=>r.id===a.guardId);
-          return {name:gd?.name||"",start:a.start,end:a.end};
+          return {name:(gd&&gd.name)||"",start:a.start,end:a.end};
         });
       }
       // Detect any split shifts
@@ -703,7 +703,7 @@ function App() {
                       <DayPill type={d.dayType}/>
                       {d.dayType!=="closed"&&(
                         <>
-                          <div style={{fontSize:"10px",color:"#4A7A5A",marginTop:"4px",color:cmm?.color||"#5A8A6A"}}>{cmm?.label}{d.boomActive?" + Boom":""}</div>
+                          <div style={{fontSize:"10px",color:"#4A7A5A",marginTop:"4px",color:(cmm&&cmm.color)||"#5A8A6A"}}>{(cmm&&cmm.label)}{d.boomActive?" + Boom":""}</div>
                           {stats&&(
                             <div style={{marginTop:"6px"}}>
                               <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px"}}>
@@ -741,7 +741,7 @@ function App() {
                       <div className="modebtns" style={{display:"flex"}}>
                         {[2,3,4].map(m=>(
                           <button key={m} className={sdd.chairMode===m?"on":""} onClick={()=>setDayField(sd,"chairMode",m)}
-                            style={{color:sdd.chairMode===m?"#000":(CHAIR_META[m]?.color||"#5A8A6A"),background:sdd.chairMode===m?(CHAIR_META[m]?.color||"#16A34A"):"none",borderColor:sdd.chairMode===m?(CHAIR_META[m]?.color||"#16A34A"):"#14532D"}}>
+                            style={{color:sdd.chairMode===m?"#000":((CHAIR_META[m]&&CHAIR_META[m].color)||"#5A8A6A"),background:sdd.chairMode===m?((CHAIR_META[m]&&CHAIR_META[m].color)||"#16A34A"):"none",borderColor:sdd.chairMode===m?((CHAIR_META[m]&&CHAIR_META[m].color)||"#16A34A"):"#14532D"}}>
                             {CHAIR_META[m].label}
                           </button>
                         ))}
@@ -815,7 +815,7 @@ function App() {
                                     <select value="" onChange={e=>{ if(e.target.value) handleGuardChange(sd,slot.id,0,e.target.value); }}
                                       style={{...SEL,borderColor:isBoom?"#4A1A6A":"#14532D",background:isBoom?"#0D0820":"#0D1E35",color:"#5A8A6A"}}>
                                       <option value="">-- Assign guard --</option>
-                                      {activeGuards.map(g=><option key={g.id} value={g.id}>{g.name} ({ROLE_META[g.role]?.label||g.role})</option>)}
+                                      {activeGuards.map(g=><option key={g.id} value={g.id}>{g.name} ({(ROLE_META[g.role]&&ROLE_META[g.role].label)||g.role})</option>)}
                                     </select>
                                   )}
 
@@ -956,9 +956,9 @@ function App() {
                 {fmtDate(pending.ds)}
               </div>
               <div>
-                <span style={{color:"#CC7777"}}>{roster.find(g=>g.id===pending.oldGid)?.name||"Unknown"}</span>
+                <span style={{color:"#CC7777"}}>{(roster.find(g=>g.id===pending.oldGid)||{name:"Unknown"}).name}</span>
                 <span style={{color:"#3A4A5A",margin:"0 8px"}}>-&gt;</span>
-                <span style={{color:"#77CC99"}}>{pending.newGid?roster.find(g=>g.id===pending.newGid)?.name||"Unknown":"(removed)"}</span>
+                <span style={{color:"#77CC99"}}>{pending.newGid?(roster.find(g=>g.id===pending.newGid)||{name:"Unknown"}).name:"(removed)"}</span>
               </div>
             </div>
 
