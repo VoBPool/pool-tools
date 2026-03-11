@@ -12,11 +12,15 @@
 <link rel="manifest" href="manifest.json">
 <script>
   if('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/pos-sw.js')
-        .then(() => console.log('Pool Stand: offline mode ready'))
-        .catch(e => console.log('SW error:', e));
-    });
+    const blocked = ['claudeusercontent.com', '127.0.0.1'];
+    const isPreview = blocked.some(h => location.hostname.includes(h));
+    if (!isPreview) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/pos-sw.js')
+          .then(() => console.log('Pool Stand: offline mode ready'))
+          .catch(e => console.log('SW:', e));
+      });
+    }
   }
 </script>
 <style>
@@ -279,7 +283,7 @@ body{display:flex;flex-direction:column}
       <div id="inv-p">
         <div style="display:flex;gap:8px;margin-bottom:14px">
           <button class="secbtn" style="margin:0;flex:1" onclick="showAPF()">＋ Add New Item</button>
-          <button class="secbtn pur" style="margin:0;flex:0 0 auto;padding:15px 14px;font-size:14px" onclick="showImport()">📥 CSV</button>
+          <button class="secbtn pur" style="margin:0;flex:0 0 auto;padding:10px 10px;font-size:12px;border-radius:12px;box-shadow:none;font-family:'Nunito';font-weight:800" onclick="showImport()">📥 CSV</button>
         </div>
         <div id="apf" style="display:none"></div>
         <div id="epf" style="display:none"></div>
@@ -549,6 +553,12 @@ function qualifies(combo){
   return false;
 }
 function applied(cid){return discounts.some(d=>d.comboId===cid);}
+function appliedCount(cid){return discounts.filter(d=>d.comboId===cid).length;}
+function maxApply(combo){
+  if(combo.type==='discount') return Math.min(...combo.items.map(it=>Math.floor(gCQ(it.productId)/it.qty)));
+  if(combo.type==='bxgy') return Math.floor(gCQ(combo.buyProductId)/combo.buyQty);
+  return 0;
+}
 function savings(combo){
   if(combo.type==='discount'){const norm=combo.items.reduce((s,it)=>{const p=gP(it.productId);return s+(p?p.price*it.qty:0);},0);return Math.max(0,norm-combo.comboPrice);}
   if(combo.type==='bxgy'){const p=gP(combo.getProductId);return p?p.price*combo.getQty*(combo.discountPct/100):0;}
@@ -556,22 +566,32 @@ function savings(combo){
 }
 function detectCombos(){
   const sugg=document.getElementById('csugg');
-  combos.filter(c=>c.type==='bxgy'&&qualifies(c)&&!applied(c.id)).forEach(combo=>{
+  // bxgy: apply as many times as cart qualifies
+  combos.filter(c=>c.type==='bxgy').forEach(combo=>{
+    const max=maxApply(combo),cur=appliedCount(combo.id);
+    const needed=max-cur;
+    if(needed<=0)return;
     const gp=gP(combo.getProductId);
-    if(gp&&effectiveStock(gp)>0){addSilent(gp.id);discounts.push({comboId:combo.id,name:combo.name,emoji:combo.emoji,savings:savings(combo)});toast('🎁 '+combo.name+' applied!','#f97316');}
+    if(gp&&effectiveStock(gp)>0){
+      for(let i=0;i<needed;i++){addSilent(gp.id);discounts.push({comboId:combo.id,name:combo.name,emoji:combo.emoji,savings:savings(combo)});}
+      toast('🎁 '+combo.name+' applied'+(needed>1?' ×'+needed:'')+'!','#f97316');
+    }
   });
-  const avail=combos.filter(c=>c.type==='discount'&&qualifies(c)&&!applied(c.id));
-  if(avail.length){sugg.classList.add('vis');sugg.innerHTML=avail.map(combo=>`<div class="sb2"><div class="sb2-l"><span style="font-size:24px">${combo.emoji}</span><div><div class="sb2-name">🎁 ${combo.name} available!</div><div class="sb2-save">Save ${fm(savings(combo))}</div></div></div><button class="sb2-btn" onclick="applyCombo(${combo.id})">Apply</button></div>`).join('');}
+  // discount: suggest if more applications available
+  const avail=combos.filter(c=>c.type==='discount'&&maxApply(c)>appliedCount(c.id));
+  if(avail.length){sugg.classList.add('vis');sugg.innerHTML=avail.map(combo=>{const more=maxApply(combo)-appliedCount(combo.id);return`<div class="sb2"><div class="sb2-l"><span style="font-size:24px">${combo.emoji}</span><div><div class="sb2-name">🎁 ${combo.name}${more>1?' (×'+more+' available)':''}!</div><div class="sb2-save">Save ${fm(savings(combo))} each</div></div></div><button class="sb2-btn" onclick="applyCombo(${combo.id})">Apply</button></div>`;}).join('');}
   else{sugg.classList.remove('vis');sugg.innerHTML='';}
 }
 function applyCombo(cid){
-  const combo=gC(cid);if(!combo||applied(cid))return;
-  if(!qualifies(combo)){toast('Add required items first','#ef4444');return;}
+  const combo=gC(cid);if(!combo)return;
+  if(maxApply(combo)<=appliedCount(combo.id)){toast('Add more qualifying items first','#ef4444');return;}
   const sv=savings(combo);if(sv<=0){toast('No savings available','#64748b');return;}
   discounts.push({comboId:cid,name:combo.name,emoji:combo.emoji,savings:sv});
-  toast('🎁 '+combo.name+' — saved '+fm(sv)+'!','#f97316');onChange();
+  const total=appliedCount(cid);
+  toast('🎁 '+combo.name+(total>1?' ×'+total:'')+' — saved '+fm(sv)+'!','#f97316');onChange();
 }
 function removeDiscount(cid){discounts=discounts.filter(d=>d.comboId!==cid);onChange();}
+function removeOneDiscount(cid){const idx=discounts.map(d=>d.comboId).lastIndexOf(cid);if(idx!==-1)discounts.splice(idx,1);onChange();}
 function addComboToCart(cid){
   const combo=gC(cid);if(!combo)return;
   if(combo.type==='discount'){
@@ -608,9 +628,12 @@ function renderCItems(){
   });
   if(discounts.length){
     const sep=document.createElement('div');sep.style.cssText='padding:8px 0 4px;font-size:11px;font-weight:800;color:var(--green);letter-spacing:.5px';sep.textContent='COMBOS APPLIED';c.appendChild(sep);
-    discounts.forEach(d=>{
+    // group by comboId
+    const grouped={};
+    discounts.forEach((d,idx)=>{if(!grouped[d.comboId])grouped[d.comboId]={...d,count:0,totalSavings:0};grouped[d.comboId].count++;grouped[d.comboId].totalSavings+=d.savings;});
+    Object.values(grouped).forEach(g=>{
       const el=document.createElement('div');el.className='dl';
-      el.innerHTML=`<div class="dle">${d.emoji}</div><div class="dli"><div class="dln">🎁 ${d.name}</div></div><button class="dlr" onclick="removeDiscount(${d.comboId})">Remove</button><div class="dla">−${fm(d.savings)}</div>`;
+      el.innerHTML=`<div class="dle">${g.emoji}</div><div class="dli"><div class="dln">🎁 ${g.name}${g.count>1?' <span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:10px;font-size:11px">×'+g.count+'</span>':''}</div></div><button class="dlr" onclick="removeOneDiscount(${g.comboId})">Remove one</button><div class="dla">−${fm(g.totalSavings)}</div>`;
       c.appendChild(el);
     });
   }
@@ -716,14 +739,15 @@ function renderCombosGrid(){
   const grid=document.getElementById('pg');grid.innerHTML='';
   if(!combos.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:var(--faint)"><div style="font-size:48px;margin-bottom:10px">🎁</div><div style="font-weight:700">No combos yet.</div></div>';return;}
   combos.forEach(combo=>{
-    const app=applied(combo.id),sv=savings(combo);
+    const cnt=appliedCount(combo.id),max=maxApply(combo),sv=savings(combo);
+    const canMore=max>cnt;
     let unavail=false,desc='';
     if(combo.type==='discount'){unavail=combo.items.some(it=>{const p=gP(it.productId);return!p||effectiveStock(p)<it.qty;});desc=combo.items.map(it=>{const p=gP(it.productId);return p?`${it.qty}× ${p.name}`:''}).filter(Boolean).join(' + ');}
     else if(combo.type==='bxgy'){const bp=gP(combo.buyProductId),gp2=gP(combo.getProductId);unavail=!bp||effectiveStock(bp)<combo.buyQty;desc=`Buy ${combo.buyQty}× ${bp?bp.name:'?'} → ${combo.getQty}× ${gp2?gp2.name:'?'} ${combo.discountPct===100?'FREE':combo.discountPct+'% off'}`;}
     const el=document.createElement('div');
-    el.className='cc'+(app?' applied':'')+(unavail?' unavail':'');
-    el.innerHTML=`${app?'<div class="cab">✓</div>':''}<div class="pe">${combo.emoji}</div><div class="cn">${combo.name}</div>${combo.type==='discount'?`<div class="cpt">${fm(combo.comboPrice)}</div>`:''} ${sv>0?`<div class="csav">Save ${fm(sv)}</div>`:''}<div class="cdesc">${desc}</div>`;
-    if(!app&&!unavail)el.addEventListener('click',()=>addComboToCart(combo.id));
+    el.className='cc'+(cnt>0&&!canMore?' applied':'')+(unavail&&cnt===0?' unavail':'');
+    el.innerHTML=`${cnt>0?`<div class="cab">${cnt>1?'×'+cnt:'✓'}</div>`:''}<div class="pe">${combo.emoji}</div><div class="cn">${combo.name}</div>${combo.type==='discount'?`<div class="cpt">${fm(combo.comboPrice)}</div>`:''} ${sv>0?`<div class="csav">Save ${fm(sv)} each</div>`:''}<div class="cdesc">${desc}</div>`;
+    if(!unavail||cnt>0)el.addEventListener('click',()=>addComboToCart(combo.id));
     grid.appendChild(el);
   });
 }
