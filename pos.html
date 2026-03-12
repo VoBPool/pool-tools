@@ -243,10 +243,79 @@ body{display:flex;flex-direction:column}
 .preview-table{width:100%;border-collapse:collapse;margin-bottom:14px;font-size:13px}
 .preview-table th{background:#f0f9ff;padding:8px 10px;text-align:left;font-weight:800;color:var(--blue);border-bottom:2px solid #bae6fd}
 .preview-table td{padding:8px 10px;border-bottom:1px solid var(--light)}
+
+/* ── DESKTOP (≥768px) ─────────────────────────────────── */
+@media(min-width:768px){
+  /* nice background behind the app card */
+  body{background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 50%,#0ea5e9 100%);justify-content:center;overflow:auto;}
+  html,body{height:auto;min-height:100vh;overflow:auto;}
+
+  /* app becomes a horizontal card */
+  #app{flex-direction:row;height:100vh;max-width:1140px;width:100%;border-radius:0;box-shadow:0 24px 80px rgba(0,0,0,.45);overflow:hidden;}
+
+  /* left column holds everything except the cart */
+  #left-col{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+  /* tab bar is part of normal flow */
+  #tab-bar{position:static;max-width:100%;transform:none;padding-bottom:0;}
+
+  /* product grid: 3 columns */
+  #pg{grid-template-columns:1fr 1fr 1fr;padding-bottom:14px;}
+
+  /* cart: permanent right panel, always visible */
+  #cd{
+    position:static !important;
+    display:flex !important;
+    flex:0 0 320px;
+    flex-direction:column;
+    border-radius:0;
+    box-shadow:-4px 0 20px rgba(0,0,0,.08);
+    max-height:100vh;
+    padding-bottom:0;
+    animation:none !important;
+    border-left:1px solid var(--border);
+  }
+
+  /* hide mobile-only chrome */
+  #ch{display:none;}           /* drag handle */
+  #cart-back-btn{display:none !important;} /* ← Back button */
+  #cart-bar{display:none !important;}      /* floating cart button */
+  #cart-overlay{display:none !important;}  /* overlay */
+
+  /* screen content scrollable, no extra bottom padding */
+  .sa{padding-bottom:16px;}
+  #pg{padding-bottom:16px;}
+
+  /* modals become centered dialogs instead of bottom sheets */
+  .modal-sheet,#pay-modal,#edit-order-modal{
+    bottom:auto;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    border-radius:20px;
+    max-width:480px;
+    width:calc(100% - 40px);
+    animation:fadeIn .2s ease;
+  }
+  .modal-sheet.open,#pay-modal.open,#edit-order-modal.open{display:block;}
+  #edit-order-modal.open{display:flex;flex-direction:column;}
+  #pay-modal{max-width:400px;}
+
+  /* subtle scrollbars on desktop */
+  ::-webkit-scrollbar{display:block;width:5px;height:5px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+  *{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent;}
+
+  /* slightly larger header text */
+  .b-name{font-size:20px;}
+  .s-amt{font-size:22px;}
+}
 </style>
 </head>
 <body>
 <div id="app">
+<div id="left-col">
   <div id="hdr">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:28px">🏊</span>
@@ -283,7 +352,7 @@ body{display:flex;flex-direction:column}
       <div id="inv-p">
         <div style="display:flex;gap:8px;margin-bottom:14px">
           <button class="secbtn" style="margin:0;flex:1" onclick="showAPF()">＋ Add New Item</button>
-          <button class="secbtn pur" style="margin:0;flex:0 0 auto;padding:10px 10px;font-size:12px;border-radius:12px;box-shadow:none;font-family:'Nunito';font-weight:800" onclick="showImport()">📥 CSV</button>
+          <button class="secbtn pur" style="margin:0;flex:0 0 auto;padding:0 16px;font-size:13px;border-radius:14px;box-shadow:none;font-family:'Nunito';font-weight:800;min-height:100%;align-self:stretch" onclick="showImport()">📥 CSV</button>
         </div>
         <div id="apf" style="display:none"></div>
         <div id="epf" style="display:none"></div>
@@ -316,17 +385,15 @@ body{display:flex;flex-direction:column}
     <button class="tb" onclick="swTab('history')"><span class="ti">📋</span><span class="tl">History</span><div class="td" style="display:none" id="dot-history"></div></button>
     <button class="tb" onclick="swTab('inventory')"><span class="ti">📦</span><span class="tl">Inventory</span><div class="td" style="display:none" id="dot-inventory"></div></button>
   </div>
-</div>
+  </div><!-- /left-col -->
 
-<!-- cart -->
-<div id="cart-overlay" class="overlay" onclick="closeCart()"></div>
-<div id="cd">
+  <div id="cd">
   <div id="ch"><div id="chb"></div></div>
   <div id="chdr">
     <div class="ct">🛒 Current Order</div>
     <div style="display:flex;gap:8px">
       <button style="background:#fef2f2;color:var(--red);border:none;border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation" onclick="clearCart()">Clear</button>
-      <button style="background:#e0f2fe;color:#0369a1;border:none;border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation" onclick="closeCart()">← Back</button>
+      <button id="cart-back-btn" style="background:#e0f2fe;color:#0369a1;border:none;border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation" onclick="closeCart()">← Back</button>
     </div>
   </div>
   <div id="citems"></div>
@@ -335,7 +402,12 @@ body{display:flex;flex-direction:column}
     <div id="csm"><div class="cm"><span id="cic">0 items</span><span class="sl" id="sl" style="display:none"></span></div><span id="ctot">$0.00</span></div>
     <button id="sub" onclick="startPayment()">✓ Submit Order</button>
   </div>
-</div>
+  </div><!-- /cd -->
+
+</div><!-- /app -->
+
+<!-- cart -->
+<div id="cart-overlay" class="overlay" onclick="closeCart()"></div>
 
 <!-- payment modal -->
 <div id="pay-overlay" class="overlay" onclick="closePayModal()"></div>
@@ -620,7 +692,7 @@ function addComboToCart(cid){
   }
 }
 
-function onChange(){detectCombos();updateCartUI();renderCItems();renderProducts();}
+function onChange(){detectCombos();updateCartUI();if(isDesktop()||document.getElementById('cd').classList.contains('open'))renderCItems();renderProducts();}
 function updateCartUI(){
   const cnt=cCnt(),tot=cTot(),sv=tD();
   document.getElementById('cbc').textContent=cnt;
@@ -631,8 +703,9 @@ function updateCartUI(){
   const slEl=document.getElementById('sl');
   if(sv>0){slEl.textContent='🎁 Saving '+fm(sv);slEl.style.display='block';}else slEl.style.display='none';
 }
-function openCart(){document.getElementById('cart-overlay').classList.add('open');document.getElementById('cd').classList.add('open');renderCItems();}
-function closeCart(){document.getElementById('cart-overlay').classList.remove('open');document.getElementById('cd').classList.remove('open');}
+function isDesktop(){return window.innerWidth>=768;}
+function openCart(){if(isDesktop())return;document.getElementById('cart-overlay').classList.add('open');document.getElementById('cd').classList.add('open');renderCItems();}
+function closeCart(){if(isDesktop())return;document.getElementById('cart-overlay').classList.remove('open');document.getElementById('cd').classList.remove('open');}
 function renderCItems(){
   const c=document.getElementById('citems');c.innerHTML='';
   cart.forEach(item=>{
