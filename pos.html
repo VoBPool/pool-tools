@@ -46,7 +46,7 @@ body{display:flex;flex-direction:column}
 .s-box{background:rgba(255,255,255,.18);border-radius:14px;padding:8px 16px;border:1px solid rgba(255,255,255,.25);text-align:right}
 .s-lbl{font-size:10px;color:rgba(255,255,255,.75);font-weight:700;letter-spacing:1px}
 .s-amt{font-family:'Paytone One';font-size:20px;color:#fff;line-height:1}
-#tab-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid #e8f4fd;display:grid;grid-template-columns:1fr 1fr 1fr;padding-bottom:max(8px,var(--sb));z-index:500;box-shadow:0 -4px 20px rgba(0,0,0,.08)}
+#tab-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid #e8f4fd;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding-bottom:max(8px,var(--sb));z-index:500;box-shadow:0 -4px 20px rgba(0,0,0,.08)}
 .tb{background:none;border:none;cursor:pointer;padding:10px 6px 6px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--faint);font-family:'Nunito';min-height:56px;touch-action:manipulation}
 .tb.active{color:var(--blue)}.tb:active{opacity:.6}
 .ti{font-size:22px}.tl{font-size:11px;font-weight:600}.tb.active .tl{font-weight:800}
@@ -287,7 +287,28 @@ body{display:flex;flex-direction:column}
 .date-clear{background:var(--light);color:var(--muted);border:none;border-radius:10px;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation;white-space:nowrap;}
 
 
-/* ── DESKTOP (≥768px) ─────────────────────────────────── */
+/* ── Reports ──────────────────────────────────────────── */
+.rpt-section{background:var(--white);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.rpt-title{font-family:'Paytone One';font-size:15px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
+.rpt-stat{background:var(--bg);border-radius:12px;padding:12px;text-align:center;}
+.rpt-stat-val{font-family:'Paytone One';font-size:22px;line-height:1;}
+.rpt-stat-lbl{font-size:11px;font-weight:700;color:var(--faint);margin-top:4px;}
+.rpt-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.rpt-bar-lbl{font-size:12px;font-weight:800;color:var(--text);width:90px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rpt-bar-wrap{flex:1;background:var(--light);border-radius:6px;height:20px;overflow:hidden;}
+.rpt-bar-fill{height:100%;border-radius:6px;min-width:3px;}
+.rpt-bar-val{font-size:12px;font-weight:900;width:52px;text-align:right;flex-shrink:0;}
+.rpt-bar-sub{font-size:10px;color:var(--faint);width:28px;text-align:right;flex-shrink:0;}
+.rpt-donut-row{display:flex;align-items:center;gap:14px;justify-content:center;flex-wrap:wrap;}
+.rpt-legend{display:flex;flex-direction:column;gap:6px;}
+.rpt-leg-item{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;}
+.rpt-leg-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.rpt-range{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.rpt-rb{padding:7px 14px;border-radius:10px;border:none;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito';background:var(--white);color:var(--muted);box-shadow:0 1px 4px rgba(0,0,0,.08);touch-action:manipulation;}
+.rpt-rb.active{background:var(--blue);color:#fff;}
+.rpt-empty{text-align:center;padding:30px 20px;color:var(--faint);font-weight:700;font-size:14px;}
+
 @media(min-width:768px){
   body{
     background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 50%,#0ea5e9 100%);
@@ -397,7 +418,7 @@ try {
 <div id="app">
   <div id="hdr">
     <div style="display:flex;align-items:center;gap:10px">
-      <span style="font-size:28px">🏊</span>
+      <span style="font-size:28px" id="logo-tap" onclick="handleLogoTap()">🏊</span>
       <div><div class="b-name">Pool Stand</div><div class="b-sub">CONCESSION MANAGER</div></div>
     </div>
     <div class="s-box"><div class="s-lbl">TODAY'S SALES</div><div class="s-amt" id="today-total">$0.00</div></div>
@@ -405,6 +426,7 @@ try {
     <div id="desk-tabs" style="display:none">
       <button onclick="swTab('pos')" id="dt-pos" style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">🛒 Order</button>
       <button onclick="swTab('history')" id="dt-history" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📋 History</button>
+      <button onclick="swTab('reports')" id="dt-reports" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📊 Reports</button>
       <button onclick="swTab('inventory')" id="dt-inventory" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📦 Inventory</button>
     </div>
   </div>
@@ -475,9 +497,16 @@ try {
     <span class="cbtot" id="cbtot">$0.00</span>
   </button></div>
 
+  <div id="screen-reports" class="scr">
+    <div class="sa">
+      <div id="rpt-container"></div>
+    </div>
+  </div>
+
   <div id="tab-bar">
     <button class="tb active" onclick="swTab('pos')"><span class="ti">🛒</span><span class="tl">Order</span><div class="td" id="dot-pos"></div></button>
     <button class="tb" onclick="swTab('history')"><span class="ti">📋</span><span class="tl">History</span><div class="td" style="display:none" id="dot-history"></div></button>
+    <button class="tb" onclick="swTab('reports')"><span class="ti">📊</span><span class="tl">Reports</span><div class="td" style="display:none" id="dot-reports"></div></button>
     <button class="tb" onclick="swTab('inventory')"><span class="ti">📦</span><span class="tl">Inventory</span><div class="td" style="display:none" id="dot-inventory"></div></button>
   </div>
 
@@ -579,6 +608,16 @@ try {
     </div>
   </div>
   <button class="modal-close" onclick="closeImport()">Cancel</button>
+</div>
+
+<div id="newday-overlay" class="overlay" onclick="closeNewDay()"></div>
+<div id="newday-modal" class="modal-sheet">
+  <div class="modal-title">🌅 New Day</div>
+  <div class="modal-sub">Enter password to reset the order counter to #01.<br>Order history will not be deleted.</div>
+  <input id="newday-pw" type="password" placeholder="Password..." style="width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid var(--border);font-size:16px;font-family:'Nunito';outline:none;margin-bottom:12px" onkeydown="if(event.key==='Enter')confirmNewDay()">
+  <div id="newday-err" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:10px;display:none">❌ Wrong password</div>
+  <button class="bsv" onclick="confirmNewDay()">✅ Reset Counter</button>
+  <button class="modal-close" onclick="closeNewDay()" style="margin-top:8px">Cancel</button>
 </div>
 
 <div id="toast"></div>
@@ -718,16 +757,19 @@ function swTab(tab){
   document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.td').forEach(d=>d.style.display='none');
   document.getElementById('screen-'+tab).classList.add('active');
-  document.querySelectorAll('.tb')[{pos:0,history:1,inventory:2}[tab]].classList.add('active');
-  document.getElementById('dot-'+tab).style.display='block';
-  // desktop tab buttons
-  ['pos','history','inventory'].forEach(t=>{
+  const tabIdx={pos:0,history:1,reports:2,inventory:3};
+  const tbs=document.querySelectorAll('.tb');
+  if(tbs[tabIdx[tab]])tbs[tabIdx[tab]].classList.add('active');
+  const dot=document.getElementById('dot-'+tab);
+  if(dot)dot.style.display='block';
+  ['pos','history','reports','inventory'].forEach(t=>{
     const b=document.getElementById('dt-'+t);
     if(b){b.style.background=t===tab?'rgba(255,255,255,.25)':'rgba(255,255,255,.1)';b.style.color=t===tab?'#fff':'rgba(255,255,255,.7)';}
   });
   closeCart();
   if(tab==='history')renderHistory();
   if(tab==='inventory')renderInv();
+  if(tab==='reports')renderReports();
 }
 function swIT(tab){
   curInvTab=tab;
@@ -1482,8 +1524,225 @@ function applyLayout(){
   if(tb)tb.style.display=desk?'none':'grid';
   if(desk)renderCItems();
 }
+// ── Hidden new day reset ───────────────────────────────
+let _logoTaps=0,_logoTimer=null;
+function handleLogoTap(){
+  _logoTaps++;
+  clearTimeout(_logoTimer);
+  if(_logoTaps>=5){_logoTaps=0;openNewDay();return;}
+  _logoTimer=setTimeout(()=>{_logoTaps=0;},1500);
+}
+function openNewDay(){
+  document.getElementById('newday-pw').value='';
+  document.getElementById('newday-err').style.display='none';
+  document.getElementById('newday-overlay').classList.add('open');
+  document.getElementById('newday-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('newday-pw').focus(),100);
+}
+function closeNewDay(){
+  document.getElementById('newday-overlay').classList.remove('open');
+  document.getElementById('newday-modal').classList.remove('open');
+}
+function confirmNewDay(){
+  const pw=document.getElementById('newday-pw').value;
+  if(pw!=='waterfalls'){document.getElementById('newday-err').style.display='block';return;}
+  orderCounter=0;save();
+  closeNewDay();
+  toast('🌅 New day! Order counter reset to #01');
+}
+
+// ── Auto day reset ─────────────────────────────────────
+function checkNewDay(){
+  const lastDay=localStorage.getItem('cs_last_day');
+  const today=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York'});
+  if(lastDay && lastDay!==today){
+    orderCounter=0;
+    save();
+    toast('🌅 New day — order counter reset to #01');
+  }
+  localStorage.setItem('cs_last_day',today);
+}
+
+// ── Reports ────────────────────────────────────────────
+let rptRange='week';
+
+function setRptRange(r){
+  rptRange=r;
+  document.querySelectorAll('.rpt-rb').forEach(b=>b.classList.toggle('active',b.dataset.r===r));
+  renderReports();
+}
+
+function rptOrders(){
+  const now=new Date();
+  if(rptRange==='today'){
+    const t=now.toLocaleDateString('en-US',{timeZone:'America/New_York'});
+    return orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===t);
+  }
+  if(rptRange==='week'){
+    const cutoff=new Date(now); cutoff.setDate(cutoff.getDate()-6); cutoff.setHours(0,0,0,0);
+    return orders.filter(o=>new Date(o.timestamp)>=cutoff);
+  }
+  if(rptRange==='month'){
+    const cutoff=new Date(now); cutoff.setDate(cutoff.getDate()-29); cutoff.setHours(0,0,0,0);
+    return orders.filter(o=>new Date(o.timestamp)>=cutoff);
+  }
+  return orders;
+}
+
+function renderReports(){
+  const el=document.getElementById('rpt-container');
+  const ord=rptOrders();
+
+  const rangeBar=`<div class="rpt-range">
+    ${['today','week','month','all'].map(r=>`<button class="rpt-rb${rptRange===r?' active':''}" data-r="${r}" onclick="setRptRange('${r}')">${{today:'Today',week:'Last 7 Days',month:'Last 30 Days',all:'All Time'}[r]}</button>`).join('')}
+  </div>`;
+
+  if(!ord.length){
+    el.innerHTML=rangeBar+`<div class="rpt-empty">📊<br><br>No orders in this period</div>`;
+    return;
+  }
+
+  const totalRev=ord.reduce((s,o)=>s+o.total,0);
+  const avgOrder=totalRev/ord.length;
+  const totalSaved=ord.reduce((s,o)=>s+(o.totalSavings||0),0);
+  const cashOrd=ord.filter(o=>o.payMethod==='cash');
+  const cardOrd=ord.filter(o=>o.payMethod==='card');
+  const cashRev=cashOrd.reduce((s,o)=>s+o.total,0);
+  const cardRev=cardOrd.reduce((s,o)=>s+o.total,0);
+
+  // ── Summary stats ──
+  const summary=`<div class="rpt-section">
+    <div class="rpt-title">📈 Overview</div>
+    <div class="rpt-grid">
+      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--green)">${fm(totalRev)}</div><div class="rpt-stat-lbl">Total Revenue</div></div>
+      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--blue)">${ord.length}</div><div class="rpt-stat-lbl">Orders</div></div>
+      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--purple)">${fm(avgOrder)}</div><div class="rpt-stat-lbl">Avg Order</div></div>
+      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--orange)">${fm(totalSaved)}</div><div class="rpt-stat-lbl">Combo Savings Given</div></div>
+    </div>
+  </div>`;
+
+  // ── Top items by qty ──
+  const itemMap={};
+  ord.forEach(o=>o.items.forEach(i=>{
+    if(!itemMap[i.id])itemMap[i.id]={name:i.name,emoji:i.emoji,qty:0,rev:0};
+    itemMap[i.id].qty+=i.qty; itemMap[i.id].rev+=i.price*i.qty;
+  }));
+  const topItems=Object.values(itemMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
+  const maxQty=topItems[0]?.qty||1;
+  const topItemsHTML=`<div class="rpt-section">
+    <div class="rpt-title">🏆 Top Items</div>
+    ${topItems.map(it=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${it.emoji} ${it.name}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(it.qty/maxQty*100)}%;background:linear-gradient(90deg,var(--blue),var(--teal))"></div></div>
+      <div class="rpt-bar-val" style="color:var(--blue)">${it.qty} sold</div>
+      <div class="rpt-bar-sub">${fm(it.rev)}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // ── Category breakdown ──
+  const catMap={};
+  ord.forEach(o=>o.items.forEach(i=>{
+    const p=products.find(x=>x.id===i.id);
+    const cat=p?.category||'Other';
+    if(!catMap[cat])catMap[cat]={rev:0,qty:0};
+    catMap[cat].rev+=i.price*i.qty; catMap[cat].qty+=i.qty;
+  }));
+  const catColors=['var(--blue)','var(--green)','var(--orange)','var(--purple)','var(--teal)','var(--yellow)'];
+  const cats=Object.entries(catMap).sort((a,b)=>b[1].rev-a[1].rev);
+  const maxCatRev=cats[0]?.[1].rev||1;
+  const catHTML=`<div class="rpt-section">
+    <div class="rpt-title">🗂️ By Category</div>
+    ${cats.map(([cat,d],i)=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${cat}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(d.rev/maxCatRev*100)}%;background:${catColors[i%catColors.length]}"></div></div>
+      <div class="rpt-bar-val" style="color:${catColors[i%catColors.length]}">${fm(d.rev)}</div>
+      <div class="rpt-bar-sub">${d.qty} sold</div>
+    </div>`).join('')}
+  </div>`;
+
+  // ── Payment split ──
+  const cashPct=totalRev>0?Math.round(cashRev/totalRev*100):0;
+  const cardPct=100-cashPct;
+  const payHTML=`<div class="rpt-section">
+    <div class="rpt-title">💳 Payment Split</div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div class="rpt-stat" style="flex:1"><div class="rpt-stat-val" style="color:var(--green)">${fm(cashRev)}</div><div class="rpt-stat-lbl">💵 Cash (${cashPct}%)</div></div>
+      <div class="rpt-stat" style="flex:1"><div class="rpt-stat-val" style="color:var(--blue)">${fm(cardRev)}</div><div class="rpt-stat-lbl">💳 Card (${cardPct}%)</div></div>
+    </div>
+    <div style="height:14px;border-radius:8px;overflow:hidden;display:flex;background:var(--light)">
+      ${cashPct>0?`<div style="width:${cashPct}%;background:var(--green);border-radius:8px 0 0 8px"></div>`:''}
+      ${cardPct>0?`<div style="width:${cardPct}%;background:var(--blue);border-radius:${cashPct===0?'8px':'0 8px 8px 0'}"></div>`:''}
+    </div>
+  </div>`;
+
+  // ── Peak hours ──
+  const hourMap={};
+  for(let h=0;h<24;h++)hourMap[h]={rev:0,count:0};
+  ord.forEach(o=>{
+    const h=new Date(o.timestamp).toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false});
+    const hr=parseInt(h)%24;
+    hourMap[hr].rev+=o.total; hourMap[hr].count++;
+  });
+  // Only show hours with activity, plus adjacent hours
+  const activeHours=Object.entries(hourMap).filter(([,d])=>d.count>0).map(([h])=>parseInt(h));
+  const minH=activeHours.length?Math.max(0,Math.min(...activeHours)-1):9;
+  const maxH=activeHours.length?Math.min(23,Math.max(...activeHours)+1):20;
+  const peakHours=Object.entries(hourMap).slice(minH,maxH+1);
+  const maxPeak=Math.max(1,...peakHours.map(([,d])=>d.count));
+  const fmHr=h=>{const n=parseInt(h);const ampm=n<12?'AM':'PM';const d=n===0?12:n>12?n-12:n;return d+(n===0||n===12?'':'')+ampm;};
+  const peakHTML=`<div class="rpt-section">
+    <div class="rpt-title">⏰ Peak Hours <span style="font-size:11px;font-weight:600;color:var(--faint)">(Eastern)</span></div>
+    ${peakHours.map(([h,d])=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl" style="width:70px">${fmHr(h)}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(d.count/maxPeak*100)}%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
+      <div class="rpt-bar-val" style="color:var(--orange)">${d.count} ord</div>
+      <div class="rpt-bar-sub">${fm(d.rev)}</div>
+    </div>`).join('')}
+  </div>`;
+
+  // ── Combo performance ──
+  const comboMap={};
+  ord.forEach(o=>(o.discounts||[]).forEach(d=>{
+    if(!comboMap[d.name])comboMap[d.name]={name:d.name,count:0,saved:0};
+    comboMap[d.name].count++; comboMap[d.name].saved+=d.savings||0;
+  }));
+  const comboPerf=Object.values(comboMap).sort((a,b)=>b.count-a.count);
+  const comboHTML=comboPerf.length?`<div class="rpt-section">
+    <div class="rpt-title">🎁 Combo Performance</div>
+    ${comboPerf.map(c=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${c.name}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(c.count/comboPerf[0].count*100)}%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
+      <div class="rpt-bar-val" style="color:var(--orange)">${c.count}×</div>
+      <div class="rpt-bar-sub">${fm(c.saved)}</div>
+    </div>`).join('')}
+  </div>`:'';
+
+  // ── Day over day (last 7 days) ──
+  const dayRows=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const label=i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const ds=d.toLocaleDateString('en-US',{timeZone:'America/New_York'});
+    const dayOrd=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===ds);
+    dayRows.push({label,rev:dayOrd.reduce((s,o)=>s+o.total,0),count:dayOrd.length});
+  }
+  const maxDay=Math.max(1,...dayRows.map(d=>d.rev));
+  const dodHTML=`<div class="rpt-section">
+    <div class="rpt-title">📅 Last 7 Days</div>
+    ${dayRows.map(d=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${d.label}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(d.rev/maxDay*100)}%;background:linear-gradient(90deg,var(--green),var(--teal))"></div></div>
+      <div class="rpt-bar-val" style="color:var(--green)">${fm(d.rev)}</div>
+      <div class="rpt-bar-sub">${d.count} ord</div>
+    </div>`).join('')}
+  </div>`;
+
+  el.innerHTML=rangeBar+summary+topItemsHTML+catHTML+payHTML+peakHTML+comboHTML+dodHTML;
+}
+
 async function initApp(){
   // Always render immediately from localStorage — never block the UI
+  checkNewDay();
   renderCatBar();renderProducts();updateTodayTotal();
   applyLayout();
   window.addEventListener('resize',()=>{applyLayout();renderProducts();});
