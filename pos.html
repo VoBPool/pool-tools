@@ -1485,13 +1485,19 @@ function applyLayout(){
   if(desk)renderCItems();
 }
 async function initApp(){
-  // Try to load from Firestore first
-  if(window._fbReady && window._db){
+  // Always render immediately from localStorage — never block the UI
+  renderCatBar();renderProducts();updateTodayTotal();
+  applyLayout();
+  window.addEventListener('resize',()=>{applyLayout();renderProducts();});
+
+  // Then try Firebase in the background
+  const tryFirebase=async()=>{
+    if(!window._fbReady||!window._db){setSyncDot('offline');return;}
     try{
       const {doc,getDoc,collection,onSnapshot}=window._fb;
       const db=window._db;
 
-      // Load config (products, ingredients, combos, etc.)
+      // Load config
       const configSnap=await getDoc(doc(db,'pos','config'));
       if(configSnap.exists()){
         const d=configSnap.data();
@@ -1501,27 +1507,22 @@ async function initApp(){
         if(d.pillOrder)    pillOrder=d.pillOrder;
         if(d.combos)       combos=d.combos;
         if(d.orderCounter) orderCounter=d.orderCounter;
-        saveLocal(); // cache locally too
+        saveLocal();
+        renderCatBar();renderProducts();updateTodayTotal();
       }
 
-      // Load orders collection
-      const ordersSnap=await getDoc(doc(db,'pos','config'));
-      // Real-time listener on orders collection
+      // Real-time orders listener
       onSnapshot(collection(db,'orders'),(snapshot)=>{
         snapshot.docChanges().forEach(change=>{
           const o=change.doc.data();
-          // strip Firestore Timestamp fields before storing
           delete o.syncedAt;
           if(change.type==='added'||change.type==='modified'){
             const idx=orders.findIndex(x=>x.id===o.id);
             if(idx===-1) orders.unshift(o);
             else orders[idx]=o;
           }
-          if(change.type==='removed'){
-            orders=orders.filter(x=>x.id!==o.id);
-          }
+          if(change.type==='removed') orders=orders.filter(x=>x.id!==o.id);
         });
-        // re-sort by timestamp descending
         orders.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
         saveLocal();
         updateTodayTotal();
@@ -1530,16 +1531,13 @@ async function initApp(){
 
       setSyncDot('ok');
     }catch(e){
-      console.warn('Firebase load error, using local data:',e);
+      console.warn('Firebase error:',e);
       setSyncDot('error');
     }
-  } else {
-    setSyncDot('offline');
-  }
+  };
 
-  renderCatBar();renderProducts();updateTodayTotal();
-  applyLayout();
-  window.addEventListener('resize',()=>{applyLayout();renderProducts();});
+  // Wait briefly for the module script to finish setting window._fbReady
+  setTimeout(tryFirebase, 500);
 }
 
 initApp();
