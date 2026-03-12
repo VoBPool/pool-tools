@@ -554,9 +554,23 @@ function qualifies(combo){
 }
 function applied(cid){return discounts.some(d=>d.comboId===cid);}
 function appliedCount(cid){return discounts.filter(d=>d.comboId===cid).length;}
+
+// How many of a product are already "claimed" by other combos (not this one)
+function availQty(productId, excludeComboId){
+  let used=0;
+  discounts.forEach(d=>{
+    if(d.comboId===excludeComboId)return; // don't count this combo's own claims
+    const c=gC(d.comboId);if(!c)return;
+    if(c.type==='discount'){const it=c.items.find(x=>x.productId===productId);if(it)used+=it.qty;}
+    else if(c.type==='bxgy'&&c.buyProductId===productId)used+=c.buyQty;
+  });
+  return Math.max(0,gCQ(productId)-used);
+}
+
+// Max total times this combo can be applied, given other combos already consuming items
 function maxApply(combo){
-  if(combo.type==='discount') return Math.min(...combo.items.map(it=>Math.floor(gCQ(it.productId)/it.qty)));
-  if(combo.type==='bxgy') return Math.floor(gCQ(combo.buyProductId)/combo.buyQty);
+  if(combo.type==='discount') return Math.min(...combo.items.map(it=>Math.floor(availQty(it.productId,combo.id)/it.qty)));
+  if(combo.type==='bxgy') return Math.floor(availQty(combo.buyProductId,combo.id)/combo.buyQty);
   return 0;
 }
 function savings(combo){
