@@ -364,6 +364,34 @@ body{display:flex;flex-direction:column}
   .s-amt{font-size:22px;}
 }
 </style>
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ── PASTE YOUR FIREBASE CONFIG HERE ──────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAMb0KCrD9D4tXsjTTnA6VsuTtZOECTnPU",
+  authDomain: "pools-tools.firebaseapp.com",
+  projectId: "pools-tools",
+  storageBucket: "pools-tools.firebasestorage.app",
+  messagingSenderId: "584050444786",
+  appId: "1:584050444786:web:098a4872f7acb899d0c36b"
+};
+// ─────────────────────────────────────────────────────────
+
+let db = null;
+try {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  window._db = db;
+  window._fb = { doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp };
+  window._fbReady = true;
+} catch(e) {
+  console.warn('Firebase init failed, running offline:', e);
+  window._fbReady = false;
+}
+</script>
 </head>
 <body>
 <div id="app">
@@ -373,6 +401,7 @@ body{display:flex;flex-direction:column}
       <div><div class="b-name">Pool Stand</div><div class="b-sub">CONCESSION MANAGER</div></div>
     </div>
     <div class="s-box"><div class="s-lbl">TODAY'S SALES</div><div class="s-amt" id="today-total">$0.00</div></div>
+    <div id="sync-dot" title="Sync status" style="width:10px;height:10px;border-radius:50%;background:#fbbf24;flex-shrink:0;align-self:center" title="Connecting..."></div>
     <div id="desk-tabs" style="display:none">
       <button onclick="swTab('pos')" id="dt-pos" style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">🛒 Order</button>
       <button onclick="swTab('history')" id="dt-history" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📋 History</button>
@@ -588,7 +617,16 @@ let curCat='All',hFilter='today',curInvTab='products',newCT='discount',curIngCat
 let historyView='calendar',calDate=new Date();
 let editingOrderId=null,editCart=[],csvImportData=null;
 
-function save(){
+function setSyncDot(state){
+  const d=document.getElementById('sync-dot');
+  if(!d)return;
+  if(state==='ok'){d.style.background='#10b981';d.title='Synced';}
+  else if(state==='saving'){d.style.background='#3b82f6';d.title='Saving...';}
+  else if(state==='offline'){d.style.background='#f59e0b';d.title='Offline — saved locally';}
+  else if(state==='error'){d.style.background='#ef4444';d.title='Sync error';}
+}
+
+function saveLocal(){
   localStorage.setItem('cs_products',JSON.stringify(products));
   localStorage.setItem('cs_ingredients',JSON.stringify(ingredients));
   localStorage.setItem('cs_ing_cats',JSON.stringify(ingCats));
@@ -596,6 +634,49 @@ function save(){
   localStorage.setItem('cs_combos',JSON.stringify(combos));
   localStorage.setItem('cs_orders',JSON.stringify(orders));
   localStorage.setItem('cs_order_counter',String(orderCounter));
+}
+
+let _saveTimer=null;
+function save(){
+  saveLocal();
+  if(!window._fbReady||!window._db){setSyncDot('offline');return;}
+  setSyncDot('saving');
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(async()=>{
+    try{
+      const {doc,setDoc,serverTimestamp}=window._fb;
+      const db=window._db;
+      await setDoc(doc(db,'pos','config'),{
+        products,ingredients,ingCats,pillOrder,combos,orderCounter,
+        updatedAt:serverTimestamp()
+      });
+      setSyncDot('ok');
+    }catch(e){
+      console.warn('Firestore save error:',e);
+      setSyncDot('error');
+    }
+  },800); // debounce 800ms so rapid changes batch together
+}
+
+async function saveOrder(order){
+  saveLocal();
+  if(!window._fbReady||!window._db){setSyncDot('offline');return;}
+  setSyncDot('saving');
+  try{
+    const {doc,setDoc,serverTimestamp}=window._fb;
+    // save order as its own document so real-time listener catches it
+    await setDoc(doc(window._db,'pos','config'),{
+      products,ingredients,ingCats,pillOrder,combos,orderCounter,
+      updatedAt:serverTimestamp()
+    });
+    await setDoc(doc(window._db,'orders',String(order.id)),{
+      ...order, syncedAt:serverTimestamp()
+    });
+    setSyncDot('ok');
+  }catch(e){
+    console.warn('Firestore order save error:',e);
+    setSyncDot('error');
+  }
 }
 
 const fm=n=>'$'+Number(n).toFixed(2);
@@ -818,7 +899,7 @@ function submitOrder(payMethod){
   cart.forEach(ci=>deductIngredients(ci.id,ci.qty));
   cart=[];discounts=[];
   document.getElementById('on').value='';
-  save();onChange();updateTodayTotal();closePayModal();closeCart();
+  saveOrder(order);onChange();updateTodayTotal();closePayModal();closeCart();
   toast('✅ Order #'+fmNum(orderCounter)+' submitted!');
 }
 
@@ -1403,9 +1484,65 @@ function applyLayout(){
   if(tb)tb.style.display=desk?'none':'grid';
   if(desk)renderCItems();
 }
-renderCatBar();renderProducts();updateTodayTotal();
-applyLayout();
-window.addEventListener('resize',()=>{applyLayout();renderProducts();});
+async function initApp(){
+  // Try to load from Firestore first
+  if(window._fbReady && window._db){
+    try{
+      const {doc,getDoc,collection,onSnapshot}=window._fb;
+      const db=window._db;
+
+      // Load config (products, ingredients, combos, etc.)
+      const configSnap=await getDoc(doc(db,'pos','config'));
+      if(configSnap.exists()){
+        const d=configSnap.data();
+        if(d.products)     products=d.products;
+        if(d.ingredients)  ingredients=d.ingredients;
+        if(d.ingCats)      ingCats=d.ingCats;
+        if(d.pillOrder)    pillOrder=d.pillOrder;
+        if(d.combos)       combos=d.combos;
+        if(d.orderCounter) orderCounter=d.orderCounter;
+        saveLocal(); // cache locally too
+      }
+
+      // Load orders collection
+      const ordersSnap=await getDoc(doc(db,'pos','config'));
+      // Real-time listener on orders collection
+      onSnapshot(collection(db,'orders'),(snapshot)=>{
+        snapshot.docChanges().forEach(change=>{
+          const o=change.doc.data();
+          // strip Firestore Timestamp fields before storing
+          delete o.syncedAt;
+          if(change.type==='added'||change.type==='modified'){
+            const idx=orders.findIndex(x=>x.id===o.id);
+            if(idx===-1) orders.unshift(o);
+            else orders[idx]=o;
+          }
+          if(change.type==='removed'){
+            orders=orders.filter(x=>x.id!==o.id);
+          }
+        });
+        // re-sort by timestamp descending
+        orders.sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+        saveLocal();
+        updateTodayTotal();
+        if(document.getElementById('screen-history').classList.contains('active')) renderHistory();
+      });
+
+      setSyncDot('ok');
+    }catch(e){
+      console.warn('Firebase load error, using local data:',e);
+      setSyncDot('error');
+    }
+  } else {
+    setSyncDot('offline');
+  }
+
+  renderCatBar();renderProducts();updateTodayTotal();
+  applyLayout();
+  window.addEventListener('resize',()=>{applyLayout();renderProducts();});
+}
+
+initApp();
 </script>
 </body>
 </html>
