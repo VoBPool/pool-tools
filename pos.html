@@ -771,7 +771,7 @@ const tod=()=>new Date().toDateString();
 const gP=id=>products.find(p=>p.id===id);
 const gI=id=>ingredients.find(i=>i.id===id);
 const gC=id=>combos.find(c=>c.id===id);
-const gCQ=pid=>(cart.find(i=>i.id===pid)||{qty:0}).qty;
+const gCQ=pid=>cart.filter(i=>i.id===pid).reduce((s,i)=>s+i.qty,0);
 const cIT=()=>cart.reduce((s,i)=>s+i.price*i.qty,0);
 const tD=()=>discounts.reduce((s,d)=>s+d.savings,0);
 const cTot=()=>Math.max(0,cIT()-tD());
@@ -840,20 +840,24 @@ function setCat(cat){curCat=cat;renderCatBar();renderProducts();}
 
 function addToCart(id){
   const p=products.find(x=>x.id===id);if(!p||effectiveStock(p)<=0)return;
-  const ex=cart.find(i=>i.id===id);
+  const ex=cart.find(i=>i.id===id&&!i.variantId);
   if(ex)ex.qty++;else cart.push({id:p.id,name:p.name,price:p.price,emoji:p.emoji,qty:1});
   onChange();
 }
 function addSilent(id){
   const p=products.find(x=>x.id===id);if(!p)return;
-  const ex=cart.find(i=>i.id===id);
+  const ex=cart.find(i=>i.id===id&&!i.variantId);
   if(ex)ex.qty++;else cart.push({id:p.id,name:p.name,price:p.price,emoji:p.emoji,qty:1});
 }
-function setQty(id,d){
-  const idx=cart.findIndex(i=>i.id===id);if(idx===-1)return;
+function setQtyIdx(idx,d){
+  if(idx<0||idx>=cart.length)return;
   cart[idx].qty+=d;
   if(cart[idx].qty<=0){cart.splice(idx,1);purgeDiscounts();}
   onChange();
+}
+function setQty(id,d){
+  const idx=cart.findIndex(i=>i.id===id&&!i.variantId);if(idx===-1)return;
+  setQtyIdx(idx,d);
 }
 function clearCart(){cart=[];discounts=[];onChange();}
 function purgeDiscounts(){discounts=discounts.filter(d=>{const c=gC(d.comboId);return c&&qualifies(c);});}
@@ -947,9 +951,9 @@ function openCart(){if(isDesktop())return;document.getElementById('cart-overlay'
 function closeCart(){if(isDesktop())return;document.getElementById('cart-overlay').classList.remove('open');document.getElementById('cd').classList.remove('open');}
 function renderCItems(){
   const c=document.getElementById('citems');c.innerHTML='';
-  cart.forEach(item=>{
+  cart.forEach((item,idx)=>{
     const d=document.createElement('div');d.className='ci';
-    d.innerHTML=`<div class="cie">${item.emoji}</div><div class="cii"><div class="cin">${item.name}</div><div class="ciec">${fm(item.price)} each</div></div><div class="cci"><button class="qb m" onclick="setQty(${item.id},-1)">−</button><div class="ciq">${item.qty}</div><button class="qb p" onclick="setQty(${item.id},1)">+</button></div><div class="ciamt">${fm(item.price*item.qty)}</div>`;
+    d.innerHTML=`<div class="cie">${item.emoji}</div><div class="cii"><div class="cin">${item.name}</div><div class="ciec">${fm(item.price)} each</div></div><div class="cci"><button class="qb m" onclick="setQtyIdx(${idx},-1)">−</button><div class="ciq">${item.qty}</div><button class="qb p" onclick="setQtyIdx(${idx},1)">+</button></div><div class="ciamt">${fm(item.price*item.qty)}</div>`;
     c.appendChild(d);
   });
   if(discounts.length){
@@ -1658,7 +1662,8 @@ function openVariantPicker(productId){
   _varProductId=productId;
   document.getElementById('variant-title').textContent=`${p.emoji} ${p.name}`;
   const list=document.getElementById('variant-list');
-  const baseQty=gCQ(productId);
+  // base item qty = cart entries with this id and NO variantId
+  const baseQty=(cart.find(i=>i.id===productId&&!i.variantId)||{qty:0}).qty;
   list.innerHTML='';
   // Base product option
   const baseBtn=document.createElement('button');
@@ -1668,11 +1673,11 @@ function openVariantPicker(productId){
   list.appendChild(baseBtn);
   // Variants
   (p.variants||[]).forEach(v=>{
-    const varCartQty=(cart.find(i=>i.id===productId&&i.variantId===v.id)||{qty:0}).qty;
+    const varQty=(cart.find(i=>i.id===productId&&i.variantId===v.id)||{qty:0}).qty;
     const price=p.price+(v.priceDiff||0);
     const btn=document.createElement('button');
-    btn.className='var-btn'+(varCartQty>0?' in-cart':'');
-    btn.innerHTML=`<div class="var-emoji">${v.emoji||p.emoji}</div><div class="var-info"><div class="var-name">${v.name}</div><div class="var-price">${fm(price)}</div></div>${varCartQty>0?`<div class="var-qty">${varCartQty}</div>`:''}`;
+    btn.className='var-btn'+(varQty>0?' in-cart':'');
+    btn.innerHTML=`<div class="var-emoji">${v.emoji||p.emoji}</div><div class="var-info"><div class="var-name">${v.name}</div><div class="var-price">${fm(price)}</div></div>${varQty>0?`<div class="var-qty">${varQty}</div>`:''}`;
     btn.onclick=()=>{addVariantToCart(productId,v.id);closeVariantPicker();};
     list.appendChild(btn);
   });
