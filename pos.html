@@ -248,12 +248,13 @@ body{display:flex;flex-direction:column}
 @media(min-width:768px){
   body{
     background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 50%,#0ea5e9 100%);
-    display:flex;align-items:center;justify-content:center;
+    display:block;
   }
   html,body{height:100vh;overflow:hidden;}
 
-  /* app takes left portion, leaving 320px for cart on right */
+  /* app fills everything left of the cart */
   #app{
+    width:calc(100vw - 320px);
     max-width:calc(100vw - 320px);
     height:100vh;
     margin:0;
@@ -261,13 +262,11 @@ body{display:flex;flex-direction:column}
     box-shadow:none;
   }
 
-  /* cart becomes a fixed right-side panel, always visible */
+  /* cart: fixed right panel, flush to right edge */
   #cd{
     display:flex !important;
     position:fixed;
-    top:0; right:0;
-    left:auto;
-    bottom:0;
+    top:0; right:0; bottom:0; left:auto;
     transform:none;
     width:320px;
     max-width:320px;
@@ -286,12 +285,17 @@ body{display:flex;flex-direction:column}
   #cart-bar{display:none !important;}
   #cart-overlay{display:none !important;}
 
-  /* tab bar in normal flow */
-  #tab-bar{position:static;max-width:100%;transform:none;padding-bottom:0;}
+  /* tab bar hidden on desktop — nav not needed with persistent cart */
+  #tab-bar{display:none !important;}
+
+  /* add top-level tab nav into header instead */
+  #hdr{gap:20px;}
+  #desk-tabs{display:flex;gap:6px;}
 
   /* 3-column product grid, no extra bottom padding */
   #pg{grid-template-columns:1fr 1fr 1fr;padding-bottom:14px;}
   .sa{padding-bottom:16px;}
+  .scr.active{height:calc(100vh - 64px);overflow:hidden;}
 
   /* modals centered */
   .modal-sheet,#pay-modal,#edit-order-modal{
@@ -326,6 +330,11 @@ body{display:flex;flex-direction:column}
       <div><div class="b-name">Pool Stand</div><div class="b-sub">CONCESSION MANAGER</div></div>
     </div>
     <div class="s-box"><div class="s-lbl">TODAY'S SALES</div><div class="s-amt" id="today-total">$0.00</div></div>
+    <div id="desk-tabs" style="display:none">
+      <button onclick="swTab('pos')" id="dt-pos" style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">🛒 Order</button>
+      <button onclick="swTab('history')" id="dt-history" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📋 History</button>
+      <button onclick="swTab('inventory')" id="dt-inventory" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📦 Inventory</button>
+    </div>
   </div>
 
   <div id="screen-pos" class="scr active">
@@ -576,6 +585,11 @@ function swTab(tab){
   document.getElementById('screen-'+tab).classList.add('active');
   document.querySelectorAll('.tb')[{pos:0,history:1,inventory:2}[tab]].classList.add('active');
   document.getElementById('dot-'+tab).style.display='block';
+  // desktop tab buttons
+  ['pos','history','inventory'].forEach(t=>{
+    const b=document.getElementById('dt-'+t);
+    if(b){b.style.background=t===tab?'rgba(255,255,255,.25)':'rgba(255,255,255,.1)';b.style.color=t===tab?'#fff':'rgba(255,255,255,.7)';}
+  });
   closeCart();
   if(tab==='history')renderHistory();
   if(tab==='inventory')renderInv();
@@ -1159,9 +1173,17 @@ function renderComboList(){
   }).join('');
 }
 
+function applyLayout(){
+  const desk=isDesktop();
+  const dt=document.getElementById('desk-tabs');
+  const tb=document.getElementById('tab-bar');
+  if(dt)dt.style.display=desk?'flex':'none';
+  if(tb)tb.style.display=desk?'none':'grid';
+  if(desk)renderCItems();
+}
 renderCatBar();renderProducts();updateTodayTotal();
-if(isDesktop())renderCItems();
-window.addEventListener('resize',()=>{renderProducts();if(isDesktop())renderCItems();});
+applyLayout();
+window.addEventListener('resize',()=>{applyLayout();renderProducts();});
 </script>
 </body>
 </html>
