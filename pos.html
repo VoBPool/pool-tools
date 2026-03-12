@@ -287,7 +287,28 @@ body{display:flex;flex-direction:column}
 .date-clear{background:var(--light);color:var(--muted);border:none;border-radius:10px;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation;white-space:nowrap;}
 
 
-/* ── Reports ──────────────────────────────────────────── */
+/* ── Variants ─────────────────────────────────────────── */
+.var-btn{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg);border-radius:14px;border:1.5px solid transparent;cursor:pointer;touch-action:manipulation;font-family:'Nunito';text-align:left;width:100%;}
+.var-btn:active{opacity:.7;transform:scale(.98);}
+.var-btn.in-cart{border-color:var(--green);background:#f0fdf4;}
+.var-emoji{font-size:28px;flex-shrink:0;}
+.var-info{flex:1;}
+.var-name{font-weight:800;font-size:15px;color:var(--text);}
+.var-price{font-weight:900;font-size:14px;color:var(--blue);}
+.var-qty{background:var(--green);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;flex-shrink:0;}
+.var-badge{font-size:9px;background:#dbeafe;color:var(--blue);padding:2px 6px;border-radius:8px;font-weight:800;margin-top:3px;display:inline-block;}
+
+/* ── Reorder ──────────────────────────────────────────── */
+.ro-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border-radius:12px;border:1.5px solid var(--border);cursor:grab;user-select:none;}
+.ro-row.dragging{opacity:.4;border-style:dashed;}
+.ro-row.drag-over{border-color:var(--blue);background:#eff6ff;}
+.ro-handle{font-size:18px;color:var(--faint);flex-shrink:0;cursor:grab;}
+.ro-emoji{font-size:22px;flex-shrink:0;}
+.ro-name{flex:1;font-weight:800;font-size:14px;color:var(--text);}
+.ro-arrows{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.ro-arr{background:var(--light);border:none;border-radius:6px;width:28px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
+.ro-arr:active{background:var(--blue);color:#fff;}
+
 .rpt-section{background:var(--white);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
 .rpt-title{font-family:'Paytone One';font-size:15px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
 .rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
@@ -419,7 +440,11 @@ try {
   <div id="hdr">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:28px" id="logo-tap" onclick="handleLogoTap()">🏊</span>
-      <div><div class="b-name">Pool Stand</div><div class="b-sub">CONCESSION MANAGER</div></div>
+      <div>
+        <div class="b-name">Pool Stand</div>
+        <div class="b-sub">CONCESSION MANAGER</div>
+        <div id="hdr-date" style="font-size:11px;color:rgba(255,255,255,.85);font-weight:700;margin-top:1px"></div>
+      </div>
     </div>
     <div class="s-box"><div class="s-lbl">TODAY'S SALES</div><div class="s-amt" id="today-total">$0.00</div></div>
     <div id="sync-dot" title="Sync status" style="width:10px;height:10px;border-radius:50%;background:#fbbf24;flex-shrink:0;align-self:center" title="Connecting..."></div>
@@ -620,6 +645,24 @@ try {
   <button class="modal-close" onclick="closeNewDay()" style="margin-top:8px">Cancel</button>
 </div>
 
+<!-- Variant picker -->
+<div id="variant-overlay" class="overlay" onclick="closeVariantPicker()"></div>
+<div id="variant-modal" class="modal-sheet">
+  <div class="modal-title" id="variant-title">Choose an option</div>
+  <div id="variant-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+  <button class="modal-close" onclick="closeVariantPicker()">Cancel</button>
+</div>
+
+<!-- Product reorder modal -->
+<div id="reorder-overlay" class="overlay" onclick="closeReorder()"></div>
+<div id="reorder-modal" class="modal-sheet" style="max-height:85dvh">
+  <div class="modal-title">↕️ Reorder Items</div>
+  <div class="modal-sub" id="reorder-sub">Drag rows or use arrows to reorder.</div>
+  <div id="reorder-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:55dvh;margin-bottom:12px"></div>
+  <button class="bsv" onclick="saveReorder()">✅ Save Order</button>
+  <button class="modal-close" onclick="closeReorder()" style="margin-top:8px">Cancel</button>
+</div>
+
 <div id="toast"></div>
 <script>
 const DP=[
@@ -651,6 +694,7 @@ let pillOrder=JSON.parse(localStorage.getItem('cs_pill_order')||'null')||["All",
 let combos=JSON.parse(localStorage.getItem('cs_combos')||'null')||DC;
 let orders=JSON.parse(localStorage.getItem('cs_orders')||'[]');
 let orderCounter=parseInt(localStorage.getItem('cs_order_counter')||'0');
+let productOrder=JSON.parse(localStorage.getItem('cs_product_order')||'null')||[];
 let cart=[],discounts=[];
 let curCat='All',hFilter='today',curInvTab='products',newCT='discount',curIngCat='All';
 let historyView='calendar',calDate=new Date();
@@ -673,6 +717,7 @@ function saveLocal(){
   localStorage.setItem('cs_combos',JSON.stringify(combos));
   localStorage.setItem('cs_orders',JSON.stringify(orders));
   localStorage.setItem('cs_order_counter',String(orderCounter));
+  localStorage.setItem('cs_product_order',JSON.stringify(productOrder));
 }
 
 let _saveTimer=null;
@@ -686,7 +731,7 @@ function save(){
       const {doc,setDoc,serverTimestamp}=window._fb;
       const db=window._db;
       await setDoc(doc(db,'pos','config'),{
-        products,ingredients,ingCats,pillOrder,combos,orderCounter,
+        products,ingredients,ingCats,pillOrder,combos,orderCounter,productOrder,
         updatedAt:serverTimestamp()
       });
       setSyncDot('ok');
@@ -705,7 +750,7 @@ async function saveOrder(order){
     const {doc,setDoc,serverTimestamp}=window._fb;
     // save order as its own document so real-time listener catches it
     await setDoc(doc(window._db,'pos','config'),{
-      products,ingredients,ingCats,pillOrder,combos,orderCounter,
+      products,ingredients,ingCats,pillOrder,combos,orderCounter,productOrder,
       updatedAt:serverTimestamp()
     });
     await setDoc(doc(window._db,'orders',String(order.id)),{
@@ -788,7 +833,8 @@ function renderCatBar(){
   const middle=pillOrder.filter(c=>c!=='All'&&c!=='Combos'&&prodCats.includes(c));
   const display=['All',...middle,'Combos'];
   bar.innerHTML=display.map(c=>`<button class="cp${curCat===c?' active':''}${c==='Combos'?' combo-pill':''}" onclick="setCat('${c}')">${c==='Combos'?'🎁 Combos':c}</button>`).join('')
-    +`<button class="cp settings-pill" onclick="openPillMgr()">⚙️</button>`;
+    +`<button class="cp settings-pill" onclick="openPillMgr()">⚙️</button>`
+    +`<button class="cp settings-pill" onclick="openReorder()" title="Reorder items">↕️</button>`;
 }
 function setCat(cat){curCat=cat;renderCatBar();renderProducts();}
 
@@ -1003,15 +1049,21 @@ function saveEditOrder(payMethod){
 function renderProducts(){
   const grid=document.getElementById('pg');
   if(curCat==='Combos'){renderCombosGrid();return;}
-  const list=curCat==='All'?products:products.filter(p=>p.category===curCat);
+  // apply product order
+  let list=curCat==='All'?[...products]:products.filter(p=>p.category===curCat);
+  list=applyProductOrder(list);
   grid.innerHTML='';
   list.forEach(p=>{
     const stk=effectiveStock(p),hasRecipe=p.recipe&&p.recipe.length>0;
+    const hasVariants=p.variants&&p.variants.length>0;
     const inC=gCQ(p.id),oos=stk<=0,low=!oos&&stk<10;
     const el=document.createElement('div');
     el.className='pc'+(inC?' ic':'')+(oos?' oos':'');
-    el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}<div class="pe">${p.emoji}</div><div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasRecipe?'<div class="ing-badge">🥫 recipe</div>':''}`;
-    if(!oos)el.addEventListener('click',()=>addToCart(p.id));
+    el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}<div class="pe">${p.emoji}</div><div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasRecipe?'<div class="ing-badge">🥫 recipe</div>':''}${hasVariants?`<div class="var-badge">▾ ${p.variants.length} options</div>`:''}`;
+    if(!oos)el.addEventListener('click',()=>{
+      if(hasVariants) openVariantPicker(p.id);
+      else addToCart(p.id);
+    });
     grid.appendChild(el);
   });
 }
@@ -1287,11 +1339,49 @@ function addProd(){
   products.push({id:Date.now(),name:n,price:p,stock:s,category:cat,emoji:e,recipe});
   save();document.getElementById('apf').style.display='none';renderProdList();renderCatBar();toast('✅ Item added!');
 }
+function variantFormHTML(variants){
+  const rows=(variants||[]).map((v,i)=>`<div class="variant-row" id="vrow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input class="fi" style="flex:0 0 50px;padding:8px;font-size:13px" placeholder="🍫" value="${v.emoji||''}" id="ve-e-${i}">
+    <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Kit Kat" value="${v.name}" id="ve-n-${i}">
+    <input class="fi" style="flex:0 0 70px;font-size:13px;padding:8px" type="number" inputmode="decimal" placeholder="+0.00" value="${v.priceDiff||0}" id="ve-p-${i}" title="Price difference from base">
+    <button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito';font-size:12px;touch-action:manipulation" onclick="removeVariantRow(${i})">✕</button>
+  </div>`).join('');
+  return`<div class="recipe-section" id="variant-section">
+    <div class="recipe-title">🎛️ Variants <span style="font-size:11px;color:var(--blue);font-weight:600">(optional)</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5">Add flavors, sizes, or options. Price diff is ±base price.</div>
+    <div style="display:flex;gap:4px;font-size:11px;font-weight:700;color:var(--faint);margin-bottom:4px;padding:0 2px"><span style="flex:0 0 50px">Emoji</span><span style="flex:1">Name</span><span style="flex:0 0 70px">±Price</span><span style="flex:0 0 32px"></span></div>
+    <div id="variant-rows">${rows}</div>
+    <button class="add-ing-btn" onclick="addVariantRow()">+ Add Option</button>
+  </div>`;
+}
+let _editingVariants=[];
+function addVariantRow(){
+  _editingVariants.push({id:Date.now(),name:'',emoji:'',priceDiff:0});
+  document.getElementById('variant-rows').insertAdjacentHTML('beforeend',`<div class="variant-row" id="vrow-${_editingVariants.length-1}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input class="fi" style="flex:0 0 50px;padding:8px;font-size:13px" placeholder="🍫" id="ve-e-${_editingVariants.length-1}">
+    <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Kit Kat" id="ve-n-${_editingVariants.length-1}">
+    <input class="fi" style="flex:0 0 70px;font-size:13px;padding:8px" type="number" inputmode="decimal" placeholder="+0.00" value="0" id="ve-p-${_editingVariants.length-1}" title="Price difference">
+    <button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito';font-size:12px" onclick="removeVariantRow(${_editingVariants.length-1})">✕</button>
+  </div>`);
+}
+function removeVariantRow(i){const row=document.getElementById('vrow-'+i);if(row)row.remove();}
+function collectVariants(){
+  const rows=document.querySelectorAll('.variant-row');
+  const out=[];
+  rows.forEach((row,i)=>{
+    const idx=row.id.replace('vrow-','');
+    const name=document.getElementById('ve-n-'+idx)?.value.trim();
+    if(!name)return;
+    out.push({id:_editingVariants[i]?.id||Date.now()+i,name,emoji:document.getElementById('ve-e-'+idx)?.value.trim()||'',priceDiff:parseFloat(document.getElementById('ve-p-'+idx)?.value)||0});
+  });
+  return out;
+}
 function showEPF(id){
   const p=products.find(x=>x.id===id);if(!p)return;
+  _editingVariants=[...(p.variants||[])];
   document.getElementById('apf').style.display='none';
   document.getElementById('epf').style.display='block';
-  document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div><div class="fr2"><input class="fi" id="ep-n" value="${p.name}"></div><div class="g2 fr2"><input class="fi" id="ep-p" type="number" inputmode="decimal" value="${p.price}"><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select><input class="fi" id="ep-e" value="${p.emoji}"></div>${recipeFormHTML(p.recipe||[])}<div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div></div>`;
+  document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div><div class="fr2"><input class="fi" id="ep-n" value="${p.name}"></div><div class="g2 fr2"><input class="fi" id="ep-p" type="number" inputmode="decimal" value="${p.price}"><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select><input class="fi" id="ep-e" value="${p.emoji}"></div>${recipeFormHTML(p.recipe||[])}${variantFormHTML(p.variants||[])}<div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div></div>`;
   setTimeout(()=>{(p.recipe||[]).forEach((r,i)=>{const sel=document.querySelector(`.rr-ing[data-ri="${i}"]`);if(sel)sel.value=r.ingredientId;});},0);
 }
 function saveProd(id){
@@ -1299,7 +1389,8 @@ function saveProd(id){
   const s=parseInt(document.getElementById('ep-s').value)||0,cat=document.getElementById('ep-c').value,e=document.getElementById('ep-e').value||'🍽️';
   if(!n||isNaN(p2))return toast('Name & price required','#ef4444');
   const recipe=collectRecipe();
-  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,recipe}:x);
+  const variants=collectVariants();
+  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,recipe,variants}:x);
   save();document.getElementById('epf').style.display='none';renderProdList();toast('✅ Updated!');
 }
 function delProd(id){products=products.filter(p=>p.id!==id);save();renderProdList();toast('Removed','#64748b');}
@@ -1551,6 +1642,121 @@ function confirmNewDay(){
   toast('🌅 New day! Order counter reset to #01');
 }
 
+// ── Product order ──────────────────────────────────────
+function applyProductOrder(list){
+  if(!productOrder.length) return list;
+  const ordered=[];
+  productOrder.forEach(id=>{const p=list.find(x=>x.id===id);if(p)ordered.push(p);});
+  list.forEach(p=>{if(!productOrder.includes(p.id))ordered.push(p);});
+  return ordered;
+}
+
+// ── Variant picker ─────────────────────────────────────
+let _varProductId=null;
+function openVariantPicker(productId){
+  const p=gP(productId);if(!p)return;
+  _varProductId=productId;
+  document.getElementById('variant-title').textContent=`${p.emoji} ${p.name}`;
+  const list=document.getElementById('variant-list');
+  const baseQty=gCQ(productId);
+  list.innerHTML='';
+  // Base product option
+  const baseBtn=document.createElement('button');
+  baseBtn.className='var-btn'+(baseQty>0?' in-cart':'');
+  baseBtn.innerHTML=`<div class="var-emoji">${p.emoji}</div><div class="var-info"><div class="var-name">${p.name} (original)</div><div class="var-price">${fm(p.price)}</div></div>${baseQty>0?`<div class="var-qty">${baseQty}</div>`:''}`;
+  baseBtn.onclick=()=>{addToCart(productId);closeVariantPicker();};
+  list.appendChild(baseBtn);
+  // Variants
+  (p.variants||[]).forEach(v=>{
+    const varCartQty=(cart.find(i=>i.id===productId&&i.variantId===v.id)||{qty:0}).qty;
+    const price=p.price+(v.priceDiff||0);
+    const btn=document.createElement('button');
+    btn.className='var-btn'+(varCartQty>0?' in-cart':'');
+    btn.innerHTML=`<div class="var-emoji">${v.emoji||p.emoji}</div><div class="var-info"><div class="var-name">${v.name}</div><div class="var-price">${fm(price)}</div></div>${varCartQty>0?`<div class="var-qty">${varCartQty}</div>`:''}`;
+    btn.onclick=()=>{addVariantToCart(productId,v.id);closeVariantPicker();};
+    list.appendChild(btn);
+  });
+  document.getElementById('variant-overlay').classList.add('open');
+  document.getElementById('variant-modal').classList.add('open');
+}
+function closeVariantPicker(){
+  document.getElementById('variant-overlay').classList.remove('open');
+  document.getElementById('variant-modal').classList.remove('open');
+  _varProductId=null;
+}
+function addVariantToCart(productId,variantId){
+  const p=gP(productId);if(!p)return;
+  const v=(p.variants||[]).find(x=>x.id===variantId);if(!v)return;
+  const price=p.price+(v.priceDiff||0);
+  const cartKey=productId+'-'+variantId;
+  const ex=cart.find(i=>i.id===productId&&i.variantId===variantId);
+  if(ex){ex.qty++;}
+  else{cart.push({id:productId,variantId,variantName:v.name,name:p.name+' — '+v.name,price,qty:1,emoji:v.emoji||p.emoji});}
+  onChange();
+}
+
+// ── Product reorder ────────────────────────────────────
+let _roList=[];  // working copy during reorder modal
+let _roDragIdx=null;
+function openReorder(){
+  // Build ordered list for current view
+  let list=curCat==='All'?[...products]:products.filter(p=>p.category===curCat);
+  _roList=applyProductOrder(list).map(p=>({id:p.id,name:p.name,emoji:p.emoji}));
+  document.getElementById('reorder-sub').textContent=curCat==='All'?'Reorder all items:':'Reorder items in '+curCat+':';
+  renderReorderList();
+  document.getElementById('reorder-overlay').classList.add('open');
+  document.getElementById('reorder-modal').classList.add('open');
+}
+function closeReorder(){
+  document.getElementById('reorder-overlay').classList.remove('open');
+  document.getElementById('reorder-modal').classList.remove('open');
+}
+function renderReorderList(){
+  const el=document.getElementById('reorder-list');
+  el.innerHTML='';
+  _roList.forEach((p,i)=>{
+    const row=document.createElement('div');
+    row.className='ro-row';
+    row.draggable=true;
+    row.dataset.i=i;
+    row.innerHTML=`<span class="ro-handle">⠿</span><span class="ro-emoji">${p.emoji}</span><span class="ro-name">${p.name}</span><div class="ro-arrows"><button class="ro-arr" onclick="roMove(${i},-1)">▲</button><button class="ro-arr" onclick="roMove(${i},1)">▼</button></div>`;
+    // drag events
+    row.addEventListener('dragstart',e=>{_roDragIdx=i;row.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    row.addEventListener('dragend',()=>{row.classList.remove('dragging');_roDragIdx=null;renderReorderList();});
+    row.addEventListener('dragover',e=>{e.preventDefault();row.classList.add('drag-over');});
+    row.addEventListener('dragleave',()=>row.classList.remove('drag-over'));
+    row.addEventListener('drop',e=>{
+      e.preventDefault();row.classList.remove('drag-over');
+      if(_roDragIdx===null||_roDragIdx===i)return;
+      const moved=_roList.splice(_roDragIdx,1)[0];
+      _roList.splice(i,0,moved);
+      _roDragIdx=null;renderReorderList();
+    });
+    el.appendChild(row);
+  });
+}
+function roMove(i,dir){
+  const ni=i+dir;
+  if(ni<0||ni>=_roList.length)return;
+  const tmp=_roList[i];_roList[i]=_roList[ni];_roList[ni]=tmp;
+  renderReorderList();
+}
+function saveReorder(){
+  // Merge new order into productOrder — preserve ordering of items not in current view
+  const newIds=_roList.map(p=>p.id);
+  // Remove current view items from productOrder, then splice in new order at the right position
+  const otherIds=productOrder.filter(id=>!newIds.includes(id));
+  // Find where to insert: after the last "other" item that comes before first item in new order
+  productOrder=[...otherIds,...newIds];
+  // For All-category reorder, just replace entirely with full list order
+  if(curCat==='All'){
+    const allOtherIds=products.filter(p=>!newIds.includes(p.id)).map(p=>p.id);
+    productOrder=[...newIds,...allOtherIds];
+  }
+  save();renderProducts();closeReorder();
+  toast('✅ Order saved!');
+}
+
 // ── Auto day reset ─────────────────────────────────────
 function checkNewDay(){
   const lastDay=localStorage.getItem('cs_last_day');
@@ -1741,6 +1947,11 @@ function renderReports(){
 }
 
 async function initApp(){
+  // Set today's date in header (Eastern time)
+  const hdrDate=document.getElementById('hdr-date');
+  if(hdrDate){
+    hdrDate.textContent=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',weekday:'short',month:'long',day:'numeric',year:'numeric'});
+  }
   // Always render immediately from localStorage — never block the UI
   checkNewDay();
   renderCatBar();renderProducts();updateTodayTotal();
@@ -1764,6 +1975,7 @@ async function initApp(){
         if(d.pillOrder)    pillOrder=d.pillOrder;
         if(d.combos)       combos=d.combos;
         if(d.orderCounter) orderCounter=d.orderCounter;
+        if(d.productOrder) productOrder=d.productOrder;
         saveLocal();
         renderCatBar();renderProducts();updateTodayTotal();
       }
