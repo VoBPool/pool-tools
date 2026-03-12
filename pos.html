@@ -40,7 +40,6 @@ body{display:flex;flex-direction:column}
 @keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 #app{display:flex;flex-direction:column;height:100dvh;width:100%;max-width:480px;margin:0 auto;background:var(--bg);position:relative;overflow:hidden}
-#left-col{display:flex;flex-direction:column;flex:1;overflow:hidden;min-width:0;}
 #hdr{background:linear-gradient(135deg,var(--blue),var(--teal));padding:16px 18px 14px;padding-top:max(16px,var(--st));display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 4px 20px rgba(14,165,233,.35);z-index:10}
 .b-name{font-family:'Paytone One';font-size:18px;color:#fff;line-height:1.1}
 .b-sub{font-size:10px;color:rgba(255,255,255,.75);font-weight:700;letter-spacing:1px}
@@ -88,9 +87,8 @@ body{display:flex;flex-direction:column}
 .cblbl{color:#fff;font-weight:800;font-size:16px}.cbtot{font-family:'Paytone One';color:#fff;font-size:20px}
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:fadeIn .2s ease}
 .overlay.open{display:block}
-#cd{background:var(--white);display:flex;flex-direction:column;padding-bottom:max(20px,var(--sb));}
-#cd.mobile-drawer{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;border-radius:24px 24px 0 0;z-index:700;max-height:92dvh;animation:slideUp .25s ease;box-shadow:0 -12px 50px rgba(0,0,0,.25);display:none;}
-#cd.mobile-drawer.open{display:flex;}
+#cd{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-radius:24px 24px 0 0;z-index:700;max-height:92dvh;display:none;flex-direction:column;animation:slideUp .25s ease;padding-bottom:max(20px,var(--sb));box-shadow:0 -12px 50px rgba(0,0,0,.25)}
+#cd.open{display:flex}
 #ch{display:flex;justify-content:center;padding:14px 0 6px}
 #chb{width:44px;height:5px;background:var(--border);border-radius:3px}
 #chdr{display:flex;justify-content:space-between;align-items:center;padding:4px 18px 14px;border-bottom:1px solid var(--light)}
@@ -248,64 +246,73 @@ body{display:flex;flex-direction:column}
 
 /* ── DESKTOP (≥768px) ─────────────────────────────────── */
 @media(min-width:768px){
-  /* nice background behind the app card */
-  body{background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 50%,#0ea5e9 100%);justify-content:center;overflow:auto;}
-  html,body{height:auto;min-height:100vh;overflow:auto;}
+  body{
+    background:linear-gradient(135deg,#0c4a6e 0%,#0369a1 50%,#0ea5e9 100%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  html,body{height:100vh;overflow:hidden;}
 
-  /* app becomes a horizontal card */
-  #app{flex-direction:row;height:100vh;max-width:1140px;width:100%;border-radius:0;box-shadow:0 24px 80px rgba(0,0,0,.45);overflow:hidden;}
-
-  /* left column holds everything except the cart */
-  #left-col{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
-
-  /* tab bar is part of normal flow */
-  #tab-bar{position:static;max-width:100%;transform:none;padding-bottom:0;}
-
-  /* product grid: 3 columns */
-  #pg{grid-template-columns:1fr 1fr 1fr;padding-bottom:14px;}
-
-  /* cart: permanent right panel, always visible */
-  #cd{
-    flex:0 0 320px;
+  /* app takes left portion, leaving 320px for cart on right */
+  #app{
+    max-width:calc(100vw - 320px);
+    height:100vh;
+    margin:0;
     border-radius:0;
-    box-shadow:-4px 0 20px rgba(0,0,0,.08);
-    max-height:100vh;
-    padding-bottom:0;
-    border-left:1px solid var(--border);
+    box-shadow:none;
   }
 
-  /* hide mobile-only chrome */
-  #ch{display:none;}           /* drag handle */
-  #cart-back-btn{display:none !important;} /* ← Back button */
-  #cart-bar{display:none !important;}      /* floating cart button */
-  #cart-overlay{display:none !important;}  /* overlay */
+  /* cart becomes a fixed right-side panel, always visible */
+  #cd{
+    display:flex !important;
+    position:fixed;
+    top:0; right:0;
+    left:auto;
+    bottom:0;
+    transform:none;
+    width:320px;
+    max-width:320px;
+    max-height:100vh;
+    border-radius:0;
+    border-left:1px solid var(--border);
+    box-shadow:-4px 0 20px rgba(0,0,0,.08);
+    padding-bottom:0;
+    animation:none;
+    z-index:10;
+  }
 
-  /* screen content scrollable, no extra bottom padding */
+  /* hide mobile-only elements */
+  #ch{display:none;}
+  #cart-back-btn{display:none !important;}
+  #cart-bar{display:none !important;}
+  #cart-overlay{display:none !important;}
+
+  /* tab bar in normal flow */
+  #tab-bar{position:static;max-width:100%;transform:none;padding-bottom:0;}
+
+  /* 3-column product grid, no extra bottom padding */
+  #pg{grid-template-columns:1fr 1fr 1fr;padding-bottom:14px;}
   .sa{padding-bottom:16px;}
-  #pg{padding-bottom:16px;}
 
-  /* modals become centered dialogs instead of bottom sheets */
+  /* modals centered */
   .modal-sheet,#pay-modal,#edit-order-modal{
-    bottom:auto;
-    top:50%;
-    left:50%;
+    bottom:auto; top:50%; left:50%;
     transform:translate(-50%,-50%);
     border-radius:20px;
     max-width:480px;
     width:calc(100% - 40px);
     animation:fadeIn .2s ease;
+    right:auto;
   }
-  .modal-sheet.open,#pay-modal.open,#edit-order-modal.open{display:block;}
+  .modal-sheet.open,#pay-modal.open{display:block;}
   #edit-order-modal.open{display:flex;flex-direction:column;}
   #pay-modal{max-width:400px;}
 
-  /* subtle scrollbars on desktop */
+  /* scrollbars */
   ::-webkit-scrollbar{display:block;width:5px;height:5px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
   *{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent;}
 
-  /* slightly larger header text */
   .b-name{font-size:20px;}
   .s-amt{font-size:22px;}
 }
@@ -313,7 +320,6 @@ body{display:flex;flex-direction:column}
 </head>
 <body>
 <div id="app">
-<div id="left-col">
   <div id="hdr">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:28px">🏊</span>
@@ -383,9 +389,12 @@ body{display:flex;flex-direction:column}
     <button class="tb" onclick="swTab('history')"><span class="ti">📋</span><span class="tl">History</span><div class="td" style="display:none" id="dot-history"></div></button>
     <button class="tb" onclick="swTab('inventory')"><span class="ti">📦</span><span class="tl">Inventory</span><div class="td" style="display:none" id="dot-inventory"></div></button>
   </div>
-  </div><!-- /left-col -->
 
-  <div id="cd">
+</div><!-- /app -->
+
+<!-- cart overlay + drawer (mobile) / side panel (desktop via CSS) -->
+<div id="cart-overlay" class="overlay" onclick="closeCart()"></div>
+<div id="cd">
   <div id="ch"><div id="chb"></div></div>
   <div id="chdr">
     <div class="ct">🛒 Current Order</div>
@@ -400,12 +409,7 @@ body{display:flex;flex-direction:column}
     <div id="csm"><div class="cm"><span id="cic">0 items</span><span class="sl" id="sl" style="display:none"></span></div><span id="ctot">$0.00</span></div>
     <button id="sub" onclick="startPayment()">✓ Submit Order</button>
   </div>
-  </div><!-- /cd -->
-
-</div><!-- /app -->
-
-<!-- cart -->
-<div id="cart-overlay" class="overlay" onclick="closeCart()"></div>
+</div><!-- /cd -->
 
 <!-- payment modal -->
 <div id="pay-overlay" class="overlay" onclick="closePayModal()"></div>
@@ -702,11 +706,6 @@ function updateCartUI(){
   if(sv>0){slEl.textContent='🎁 Saving '+fm(sv);slEl.style.display='block';}else slEl.style.display='none';
 }
 function isDesktop(){return window.innerWidth>=768;}
-function setupCartMode(){
-  const cd=document.getElementById('cd');
-  if(isDesktop()){cd.classList.remove('mobile-drawer','open');}
-  else{cd.classList.add('mobile-drawer');renderCItems();}
-}
 function openCart(){if(isDesktop())return;document.getElementById('cart-overlay').classList.add('open');document.getElementById('cd').classList.add('open');renderCItems();}
 function closeCart(){if(isDesktop())return;document.getElementById('cart-overlay').classList.remove('open');document.getElementById('cd').classList.remove('open');}
 function renderCItems(){
@@ -1161,8 +1160,8 @@ function renderComboList(){
 }
 
 renderCatBar();renderProducts();updateTodayTotal();
-setupCartMode();
-window.addEventListener('resize',()=>{setupCartMode();renderProducts();});
+if(isDesktop())renderCItems();
+window.addEventListener('resize',()=>{renderProducts();if(isDesktop())renderCItems();});
 </script>
 </body>
 </html>
