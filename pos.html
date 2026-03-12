@@ -244,6 +244,49 @@ body{display:flex;flex-direction:column}
 .preview-table th{background:#f0f9ff;padding:8px 10px;text-align:left;font-weight:800;color:var(--blue);border-bottom:2px solid #bae6fd}
 .preview-table td{padding:8px 10px;border-bottom:1px solid var(--light)}
 
+/* History view tabs */
+.hv-tabs{display:flex;gap:6px;margin-bottom:14px;}
+.hvt{flex:1;padding:10px 6px;border-radius:12px;border:none;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito';background:var(--white);color:var(--muted);box-shadow:0 2px 8px rgba(0,0,0,.06);touch-action:manipulation;text-align:center;}
+.hvt.active{background:var(--blue);color:#fff;}
+
+/* Calendar */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.cal-month{font-family:'Paytone One';font-size:18px;color:var(--text);}
+.cal-arrow{background:var(--white);border:1.5px solid var(--border);border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
+.cal-arrow:active{opacity:.6;}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;}
+.cal-dow-cell{text-align:center;font-size:10px;font-weight:800;color:var(--faint);padding:4px 0;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:14px;}
+.cal-day{border-radius:10px;padding:4px 2px;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;touch-action:manipulation;background:var(--white);border:1.5px solid transparent;transition:border-color .1s;}
+.cal-day:active{opacity:.7;}
+.cal-day.empty{background:transparent;pointer-events:none;}
+.cal-day.other-month{opacity:.3;}
+.cal-day.today{border-color:var(--blue);}
+.cal-day.selected{background:#dbeafe;border-color:var(--blue);}
+.cal-day.has-orders{background:#f0fdf4;}
+.cal-day.selected.has-orders{background:#dbeafe;}
+.cal-dn{font-size:12px;font-weight:800;color:var(--text);margin-top:3px;}
+.cal-day.today .cal-dn{color:var(--blue);}
+.cal-rev{font-size:9px;font-weight:800;color:var(--green);margin-top:2px;text-align:center;line-height:1.2;}
+.cal-dot{width:5px;height:5px;border-radius:50%;background:var(--green);margin-top:3px;}
+
+/* Summary */
+.sum-section{margin-bottom:18px;}
+.sum-title{font-weight:900;font-size:12px;color:var(--faint);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;}
+.sum-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.sum-label{font-size:13px;font-weight:700;color:var(--text);min-width:90px;flex-shrink:0;}
+.sum-bar-wrap{flex:1;background:var(--light);border-radius:6px;height:22px;overflow:hidden;}
+.sum-bar{height:100%;background:linear-gradient(90deg,var(--green),var(--teal));border-radius:6px;min-width:4px;transition:width .3s ease;}
+.sum-val{font-weight:900;font-size:13px;color:var(--green);min-width:52px;text-align:right;flex-shrink:0;}
+.sum-orders{font-size:11px;color:var(--faint);min-width:28px;text-align:right;flex-shrink:0;}
+
+/* Date filter row */
+.date-filter-row{display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap;}
+.date-input{padding:9px 12px;border-radius:12px;border:1.5px solid var(--border);font-size:14px;font-family:'Nunito';outline:none;color:var(--text);background:var(--white);touch-action:manipulation;}
+.date-input:focus{border-color:var(--blue);}
+.date-clear{background:var(--light);color:var(--muted);border:none;border-radius:10px;padding:9px 12px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation;white-space:nowrap;}
+
+
 /* ── DESKTOP (≥768px) ─────────────────────────────────── */
 @media(min-width:768px){
   body{
@@ -346,12 +389,22 @@ body{display:flex;flex-direction:column}
   <div id="screen-history" class="scr">
     <div class="sa">
       <div class="sg" id="stats-grid"></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="fb active" onclick="setHF('today')">Today</button>
-        <button class="fb" onclick="setHF('all')">All Time</button>
-        <button class="exp-btn" onclick="exportCSV()">⬇ Export</button>
+      <div class="hv-tabs">
+        <button class="hvt active" onclick="setHV('calendar')">📅 Calendar</button>
+        <button class="hvt" onclick="setHV('summary')">📊 Summary</button>
+        <button class="hvt" onclick="setHV('orders')">📋 Orders</button>
       </div>
-      <div id="orders-list"></div>
+      <div id="hv-calendar"></div>
+      <div id="hv-summary" style="display:none"></div>
+      <div id="hv-orders" style="display:none">
+        <div class="date-filter-row">
+          <button class="fb active" id="hf-today" onclick="setHF('today')">Today</button>
+          <button class="fb" id="hf-all" onclick="setHF('all')">All Time</button>
+          <input type="date" class="date-input" id="hf-date" onchange="setHF('date')">
+          <button class="exp-btn" onclick="exportCSV()">⬇ Export</button>
+        </div>
+        <div id="orders-list"></div>
+      </div>
     </div>
   </div>
 
@@ -365,7 +418,7 @@ body{display:flex;flex-direction:column}
       <div id="inv-p">
         <div style="display:flex;gap:8px;margin-bottom:14px">
           <button class="secbtn" style="margin:0;flex:1" onclick="showAPF()">＋ Add New Item</button>
-          <button class="secbtn pur" style="margin:0;flex:0 0 auto;padding:0 16px;font-size:13px;border-radius:14px;box-shadow:none;font-family:'Nunito';font-weight:800;min-height:100%;align-self:stretch" onclick="showImport()">📥 CSV</button>
+          <button onclick="showImport()" style="margin:0;flex:0 0 auto;padding:6px 10px;font-size:11px;border-radius:10px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;font-family:'Nunito';font-weight:800;cursor:pointer;align-self:center;touch-action:manipulation;white-space:nowrap">📥 CSV</button>
         </div>
         <div id="apf" style="display:none"></div>
         <div id="epf" style="display:none"></div>
@@ -532,6 +585,7 @@ let orders=JSON.parse(localStorage.getItem('cs_orders')||'[]');
 let orderCounter=parseInt(localStorage.getItem('cs_order_counter')||'0');
 let cart=[],discounts=[];
 let curCat='All',hFilter='today',curInvTab='products',newCT='discount',curIngCat='All';
+let historyView='calendar',calDate=new Date();
 let editingOrderId=null,editCart=[],csvImportData=null;
 
 function save(){
@@ -859,12 +913,37 @@ function updateTodayTotal(){
   const t=orders.filter(o=>new Date(o.timestamp).toDateString()===tod()).reduce((s,o)=>s+o.total,0);
   document.getElementById('today-total').textContent=fm(t);
 }
+// ── History state ──────────────────────────────────────
+let historyView='calendar';
+let calDate=new Date(); // month being viewed
+
+function setHV(v){
+  historyView=v;
+  document.querySelectorAll('.hvt').forEach((b,i)=>b.classList.toggle('active',['calendar','summary','orders'][i]===v));
+  document.getElementById('hv-calendar').style.display=v==='calendar'?'block':'none';
+  document.getElementById('hv-summary').style.display=v==='summary'?'block':'none';
+  document.getElementById('hv-orders').style.display=v==='orders'?'block':'none';
+  if(v==='calendar')renderCalendar();
+  if(v==='summary')renderSummary();
+  if(v==='orders')renderOrdersList();
+}
+
 function setHF(f){
   hFilter=f;
-  document.querySelectorAll('.fb').forEach((b,i)=>b.classList.toggle('active',i===(f==='today'?0:1)));
-  renderHistory();
+  document.getElementById('hf-today').classList.toggle('active',f==='today');
+  document.getElementById('hf-all').classList.toggle('active',f==='all');
+  document.getElementById('hf-date').classList.toggle('active',f==='date');
+  renderOrdersList();
 }
+
 function renderHistory(){
+  renderStatsGrid();
+  if(historyView==='calendar')renderCalendar();
+  else if(historyView==='summary')renderSummary();
+  else renderOrdersList();
+}
+
+function renderStatsGrid(){
   const tOrd=orders.filter(o=>new Date(o.timestamp).toDateString()===tod());
   const tRev=tOrd.reduce((s,o)=>s+o.total,0);
   const allSaved=orders.reduce((s,o)=>s+(o.totalSavings||0),0);
@@ -873,33 +952,176 @@ function renderHistory(){
     <div class="sc"><div class="si">📋</div><div class="sv" style="color:var(--blue)">${tOrd.length}</div><div class="slb">Today's Orders</div></div>
     <div class="sc"><div class="si">📊</div><div class="sv" style="color:var(--purple)">${orders.length}</div><div class="slb">All-Time Orders</div></div>
     <div class="sc"><div class="si">🎁</div><div class="sv" style="color:var(--orange)">${fm(allSaved)}</div><div class="slb">Combo Savings</div></div>`;
-  const list=document.getElementById('orders-list');
-  const filtered=hFilter==='today'?tOrd:orders;
-  if(!filtered.length){list.innerHTML=`<div class="es"><div class="esi">📋</div><div class="est">No orders ${hFilter==='today'?'today':'yet'}</div></div>`;return;}
-  list.innerHTML=filtered.map(o=>`
-    <div class="oc">
-      <div class="ot">
-        <div>
-          <div class="oid">Order #${fmNum(o.orderNum||'??')}</div>
-          <div class="otm">${fmD(o.timestamp)} · ${fmT(o.timestamp)}</div>
-          ${o.note?`<div class="onn">📝 ${o.note}</div>`:''}
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-          <div class="otot">${fm(o.total)}</div>
-          <div style="display:flex;gap:6px;align-items:center">
-            ${o.payMethod?`<span class="pay-tag ${o.payMethod}">${o.payMethod==='cash'?'💵 Cash':'💳 Card'}</span>`:''}
-            <button class="editbtn" onclick="openEditOrder(${o.id})">✏️</button>
-            <button class="delbtn" onclick="delOrder(${o.id})">✕</button>
-          </div>
+}
+
+// build a map of dateString → {revenue, count}
+function buildDayMap(){
+  const m={};
+  orders.forEach(o=>{
+    const d=new Date(o.timestamp).toDateString();
+    if(!m[d])m[d]={revenue:0,count:0};
+    m[d].revenue+=o.total;m[d].count++;
+  });
+  return m;
+}
+
+function renderCalendar(){
+  const el=document.getElementById('hv-calendar');
+  const dayMap=buildDayMap();
+  const yr=calDate.getFullYear(),mo=calDate.getMonth();
+  const first=new Date(yr,mo,1),last=new Date(yr,mo+1,0);
+  const startDow=first.getDay(); // 0=Sun
+  const todayStr=new Date().toDateString();
+  const monthName=calDate.toLocaleDateString([],{month:'long',year:'numeric'});
+  const maxRev=Math.max(1,...Object.values(dayMap).map(d=>d.revenue));
+
+  // selected date for highlight
+  const selDate=document.getElementById('hf-date')?.value;
+  const selStr=selDate?new Date(selDate+'T12:00:00').toDateString():'';
+
+  let days='';
+  // blank cells before first day
+  for(let i=0;i<startDow;i++) days+=`<div class="cal-day empty"></div>`;
+  // day cells
+  for(let d=1;d<=last.getDate();d++){
+    const ds=new Date(yr,mo,d).toDateString();
+    const info=dayMap[ds];
+    const cls=['cal-day',info?'has-orders':'',ds===todayStr?'today':'',ds===selStr?'selected':''].filter(Boolean).join(' ');
+    days+=`<div class="${cls}" onclick="calSelectDay('${ds}')">
+      <div class="cal-dn">${d}</div>
+      ${info?`<div class="cal-rev">${fm(info.revenue)}</div><div class="cal-dot"></div>`:''}
+    </div>`;
+  }
+
+  el.innerHTML=`
+    <div class="cal-nav">
+      <button class="cal-arrow" onclick="calNav(-1)">‹</button>
+      <div class="cal-month">${monthName}</div>
+      <button class="cal-arrow" onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-dow">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d=>`<div class="cal-dow-cell">${d}</div>`).join('')}</div>
+    <div class="cal-grid">${days}</div>
+    <div id="cal-day-detail"></div>`;
+
+  // if a day is selected show its orders inline
+  if(selStr&&dayMap[selStr]) renderCalDayDetail(selStr);
+}
+
+function calNav(dir){
+  calDate=new Date(calDate.getFullYear(),calDate.getMonth()+dir,1);
+  renderCalendar();
+}
+
+function calSelectDay(ds){
+  // set the date input to this day and switch to orders view
+  const d=new Date(ds);
+  const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  setHV('orders');
+  document.getElementById('hf-date').value=iso;
+  setHF('date');
+}
+
+function renderCalDayDetail(ds){
+  const el=document.getElementById('cal-day-detail');if(!el)return;
+  const dayOrders=orders.filter(o=>new Date(o.timestamp).toDateString()===ds);
+  if(!dayOrders.length){el.innerHTML='';return;}
+  const rev=dayOrders.reduce((s,o)=>s+o.total,0);
+  el.innerHTML=`<div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:8px">${new Date(ds).toLocaleDateString([],{weekday:'long',month:'long',day:'numeric'})} — ${fm(rev)}</div>`
+    +dayOrders.map(o=>orderCardHTML(o)).join('');
+}
+
+function renderSummary(){
+  const el=document.getElementById('hv-summary');
+  if(!orders.length){el.innerHTML=`<div class="es"><div class="esi">📊</div><div class="est">No orders yet</div></div>`;return;}
+
+  // Weekly: last 8 weeks
+  const now=new Date();
+  const weeks=[];
+  for(let w=7;w>=0;w--){
+    const end=new Date(now);end.setDate(end.getDate()-w*7);
+    const start=new Date(end);start.setDate(end.getDate()-6);
+    const label=w===0?'This week':w===1?'Last week':start.toLocaleDateString([],{month:'short',day:'numeric'});
+    const wOrd=orders.filter(o=>{const d=new Date(o.timestamp);return d>=start&&d<=end;});
+    const rev=wOrd.reduce((s,o)=>s+o.total,0);
+    if(rev>0||w<=1)weeks.push({label,rev,count:wOrd.length});
+  }
+  const maxW=Math.max(1,...weeks.map(w=>w.rev));
+
+  // Monthly: all months with data
+  const monthMap={};
+  orders.forEach(o=>{
+    const d=new Date(o.timestamp);
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const label=d.toLocaleDateString([],{month:'long',year:'numeric'});
+    if(!monthMap[key])monthMap[key]={label,rev:0,count:0};
+    monthMap[key].rev+=o.total;monthMap[key].count++;
+  });
+  const months=Object.entries(monthMap).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,6).map(([,v])=>v);
+  const maxM=Math.max(1,...months.map(m=>m.rev));
+
+  el.innerHTML=`
+    <div class="sum-section">
+      <div class="sum-title">Weekly Revenue</div>
+      ${weeks.map(w=>`<div class="sum-row">
+        <div class="sum-label">${w.label}</div>
+        <div class="sum-bar-wrap"><div class="sum-bar" style="width:${Math.round(w.rev/maxW*100)}%"></div></div>
+        <div class="sum-val">${fm(w.rev)}</div>
+        <div class="sum-orders">${w.count} ord</div>
+      </div>`).join('')}
+    </div>
+    <div class="sum-section">
+      <div class="sum-title">Monthly Revenue</div>
+      ${months.map(m=>`<div class="sum-row">
+        <div class="sum-label">${m.label}</div>
+        <div class="sum-bar-wrap"><div class="sum-bar" style="width:${Math.round(m.rev/maxM*100)}%;background:linear-gradient(90deg,var(--purple),var(--blue))"></div></div>
+        <div class="sum-val">${fm(m.rev)}</div>
+        <div class="sum-orders">${m.count} ord</div>
+      </div>`).join('')}
+    </div>`;
+}
+
+function orderCardHTML(o){
+  return`<div class="oc">
+    <div class="ot">
+      <div>
+        <div class="oid">Order #${fmNum(o.orderNum||'??')}</div>
+        <div class="otm">${fmD(o.timestamp)} · ${fmT(o.timestamp)}</div>
+        ${o.note?`<div class="onn">📝 ${o.note}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div class="otot">${fm(o.total)}</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${o.payMethod?`<span class="pay-tag ${o.payMethod}">${o.payMethod==='cash'?'💵 Cash':'💳 Card'}</span>`:''}
+          <button class="editbtn" onclick="openEditOrder(${o.id})">✏️</button>
+          <button class="delbtn" onclick="delOrder(${o.id})">✕</button>
         </div>
       </div>
-      <div class="oi">${o.items.map(i=>`<span class="otag">${i.emoji} ${i.qty}× ${i.name}</span>`).join('')}${(o.discounts||[]).map(d=>`<span class="dtag">🎁 ${d.name} −${fm(d.savings)}</span>`).join('')}</div>
-    </div>`).join('');
+    </div>
+    <div class="oi">${o.items.map(i=>`<span class="otag">${i.emoji} ${i.qty}× ${i.name}</span>`).join('')}${(o.discounts||[]).map(d=>`<span class="dtag">🎁 ${d.name} −${fm(d.savings)}</span>`).join('')}</div>
+  </div>`;
 }
+
+function renderOrdersList(){
+  const tOrd=orders.filter(o=>new Date(o.timestamp).toDateString()===tod());
+  let filtered;
+  if(hFilter==='today') filtered=tOrd;
+  else if(hFilter==='all') filtered=orders;
+  else if(hFilter==='date'){
+    const v=document.getElementById('hf-date').value;
+    filtered=v?orders.filter(o=>new Date(o.timestamp).toDateString()===new Date(v+'T12:00:00').toDateString()):tOrd;
+  } else filtered=tOrd;
+  const list=document.getElementById('orders-list');
+  if(!filtered.length){list.innerHTML=`<div class="es"><div class="esi">📋</div><div class="est">No orders ${hFilter==='date'?'on this date':hFilter==='today'?'today':'yet'}</div></div>`;return;}
+  list.innerHTML=filtered.map(o=>orderCardHTML(o)).join('');
+}
+
 function delOrder(id){orders=orders.filter(o=>o.id!==id);save();updateTodayTotal();renderHistory();}
 
 function exportCSV(){
-  const filtered=hFilter==='today'?orders.filter(o=>new Date(o.timestamp).toDateString()===tod()):orders;
+  let filtered;
+  if(hFilter==='today') filtered=orders.filter(o=>new Date(o.timestamp).toDateString()===tod());
+  else if(hFilter==='date'){const v=document.getElementById('hf-date')?.value;filtered=v?orders.filter(o=>new Date(o.timestamp).toDateString()===new Date(v+'T12:00:00').toDateString()):[];}
+  else filtered=orders;
   if(!filtered.length){toast('No orders to export','#64748b');return;}
   const rows=[['Order#','Date','Time','Items','Subtotal','Savings','Total','Payment','Note']];
   filtered.forEach(o=>{rows.push([fmNum(o.orderNum||'??'),fmD(o.timestamp),fmT(o.timestamp),'"'+o.items.map(i=>`${i.qty}x ${i.name}`).join(', ')+'"',o.subtotal.toFixed(2),(o.totalSavings||0).toFixed(2),o.total.toFixed(2),o.payMethod||'','"'+(o.note||'')+'"']);});
