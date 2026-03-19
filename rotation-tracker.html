@@ -529,103 +529,106 @@ function App() {
                             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px" } },
                                 React.createElement("div", { style: { width: 10, height: 10, borderRadius: "2px", background: "#E879F9" } }),
                                 React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, "+BOOM = 6 chairs (Ch5 + Mushroom)")))),
-                    React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
-                        React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: "1000px" } },
-                            React.createElement("thead", null,
-                                React.createElement("tr", null,
-                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { verticalAlign: "middle" }) }, "TIME"),
-                                    React.createElement("th", { colSpan: 2, style: Object.assign(Object.assign({}, TH0), { background: "#0A1828", borderBottom: "1px solid #1A3A5A", color: "#5AAFCC", fontSize: "9px", textAlign: "center" }) }, "CHAIR PAIR"),
-                                    React.createElement("th", { rowSpan: 2, style: { width: "4px", background: "#060E1A", padding: 0, borderBottom: "2px solid #00B4D8" } }),
-                                    React.createElement("th", { colSpan: 2, style: Object.assign(Object.assign({}, TH0), { background: "#0A1828", borderBottom: "1px solid #1A3A5A", color: "#5AAFCC", fontSize: "9px", textAlign: "center" }) }, "WATER PAIR"),
-                                    React.createElement("th", { rowSpan: 2, style: { width: "4px", background: "#1A0A2E", padding: 0, borderBottom: "2px solid #9B30D0" } }),
-                                    React.createElement("th", { colSpan: 3, style: Object.assign(Object.assign({}, TH0), { background: "#120A20", borderBottom: "1px solid #4A1A5A", color: "#E879F9", fontSize: "9px", textAlign: "center" }) }, "BOOM PAIR"),
-                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { verticalAlign: "middle" }) }, "BULLPEN"),
-                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { color: "#6B7280", verticalAlign: "middle", fontSize: "9px" }) }, "MODE"),
-                                    React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { color: "#C8A030", verticalAlign: "middle" }) }, "STATUS")),
-                                React.createElement("tr", null,
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "CHAIR 1"),
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "CHAIR 4"),
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "SLIDE"),
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "DIVING BD"),
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#E879F9" }) }, "CHAIR 5"),
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#E879F9" }) }, "MUSHROOM"),
-                                    React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#6A4A7A" }) }, "BOOM BP"))),
-                            React.createElement("tbody", null, SCHEDULE.map((slot, idx) => {
-                                const isCur = isOpen && slot.h === ch && slot.m === cm;
-                                const sm2 = slot.h * 60 + slot.m;
-                                const slotKey = slot.h * 100 + slot.m;
-                                const mode = slot.type === "active" ? getMode(slotKey) : "normal";
-                                const isC5 = mode === "chair5", isC3 = mode === "chair3", isBoom = mode === "boom";
-                                const boomData = isBoom ? BOOM_CYCLE[slot.m] : null;
-                                const conflict = isC5 && slot.chair5Conflict;
-                                const rowCls = conflict ? "trconflict" : isC3 ? "trchair3" : isBoom ? "trboom" : "trh";
-                                const lb = isCur ? "3px solid #FFD700" : conflict ? "3px solid #FF4400" : isC3 ? "3px solid #818CF8" : isBoom ? "3px solid #9B30D055" : "3px solid transparent";
-                                const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
-                                if (slot.type === "rest") {
-                                    const { rSlide, rConcession, h, m, closing, boomSupport } = slot;
-                                    return (React.createElement("tr", { key: idx, className: "trrest", style: { borderLeft: lb } },
-                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { color: isCur ? "#FFD700" : "#664400", fontWeight: 600, background: isCur ? "rgba(255,100,0,0.07)" : "#080604" }) },
+                    (() => {
+                        const anyBoom = ACTIVE_KEYS.some(k => getMode(k) === "boom");
+                        return (React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
+                            React.createElement("table", { style: { width: "100%", borderCollapse: "collapse", minWidth: anyBoom ? "1000px" : "720px" } },
+                                React.createElement("thead", null,
+                                    React.createElement("tr", null,
+                                        React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { verticalAlign: "middle" }) }, "TIME"),
+                                        React.createElement("th", { colSpan: 2, style: Object.assign(Object.assign({}, TH0), { background: "#0A1828", borderBottom: "1px solid #1A3A5A", color: "#5AAFCC", fontSize: "9px", textAlign: "center" }) }, "CHAIR PAIR"),
+                                        React.createElement("th", { rowSpan: 2, style: { width: "4px", background: "#060E1A", padding: 0, borderBottom: "2px solid #00B4D8" } }),
+                                        React.createElement("th", { colSpan: 2, style: Object.assign(Object.assign({}, TH0), { background: "#0A1828", borderBottom: "1px solid #1A3A5A", color: "#5AAFCC", fontSize: "9px", textAlign: "center" }) }, "WATER PAIR"),
+                                        anyBoom && React.createElement("th", { rowSpan: 2, style: { width: "4px", background: "#1A0A2E", padding: 0, borderBottom: "2px solid #9B30D0" } }),
+                                        anyBoom && React.createElement("th", { colSpan: 3, style: Object.assign(Object.assign({}, TH0), { background: "#120A20", borderBottom: "1px solid #4A1A5A", color: "#E879F9", fontSize: "9px", textAlign: "center" }) }, "BOOM PAIR"),
+                                        React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { verticalAlign: "middle" }) }, "BULLPEN"),
+                                        React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { color: "#6B7280", verticalAlign: "middle", fontSize: "9px" }) }, "MODE"),
+                                        React.createElement("th", { rowSpan: 2, style: Object.assign(Object.assign({}, TH0), { color: "#C8A030", verticalAlign: "middle" }) }, "STATUS")),
+                                    React.createElement("tr", null,
+                                        React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "CHAIR 1"),
+                                        React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "CHAIR 4"),
+                                        React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "SLIDE"),
+                                        React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px" }) }, "DIVING BD"),
+                                        anyBoom && React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#E879F9" }) }, "CHAIR 5"),
+                                        anyBoom && React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#E879F9" }) }, "MUSHROOM"),
+                                        anyBoom && React.createElement("th", { style: Object.assign(Object.assign({}, TH0), { fontSize: "9px", paddingTop: "4px", color: "#6A4A7A" }) }, "BOOM BP"))),
+                                React.createElement("tbody", null, SCHEDULE.map((slot, idx) => {
+                                    const isCur = isOpen && slot.h === ch && slot.m === cm;
+                                    const sm2 = slot.h * 60 + slot.m;
+                                    const slotKey = slot.h * 100 + slot.m;
+                                    const mode = slot.type === "active" ? getMode(slotKey) : "normal";
+                                    const isC5 = mode === "chair5", isC3 = mode === "chair3", isBoom = mode === "boom";
+                                    const boomData = isBoom ? BOOM_CYCLE[slot.m] : null;
+                                    const conflict = isC5 && slot.chair5Conflict;
+                                    const rowCls = conflict ? "trconflict" : isC3 ? "trchair3" : isBoom ? "trboom" : "trh";
+                                    const lb = isCur ? "3px solid #FFD700" : conflict ? "3px solid #FF4400" : isC3 ? "3px solid #818CF8" : isBoom ? "3px solid #9B30D055" : "3px solid transparent";
+                                    const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
+                                    if (slot.type === "rest") {
+                                        const { rSlide, rConcession, h, m, closing, boomSupport } = slot;
+                                        return (React.createElement("tr", { key: idx, className: "trrest", style: { borderLeft: lb } },
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { color: isCur ? "#FFD700" : "#664400", fontWeight: 600, background: isCur ? "rgba(255,100,0,0.07)" : "#080604" }) },
+                                                fmt(h, m),
+                                                isCur && React.createElement(NowTag, null)),
+                                            closing ? (React.createElement("td", { colSpan: 12, style: Object.assign(Object.assign({}, TD), { background: "#0C0508", color: "#6A1E1E", textAlign: "center", fontSize: "11px", letterSpacing: "3px", fontWeight: 700 }) }, "POOL CLOSING - ALL STATIONS EMPTY")) : (React.createElement(React.Fragment, null,
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
+                                                React.createElement("td", { style: { width: "4px", background: "#060A10", padding: 0, borderBottom: "1px solid #0D1E35" } }),
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) },
+                                                    React.createElement("div", null,
+                                                        rSlide && React.createElement(BreakCell, { team: rSlide, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                                        boomSupport && React.createElement("div", { style: { marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" } },
+                                                            React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
+                                                            React.createElement(BoomGuardCell, { guard: boomSupport.bSlide, sm: sm2, boomGuards: boomGuards })))),
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
+                                                anyBoom && React.createElement("td", { style: { width: "4px", background: "#0A061A", padding: 0, borderBottom: "1px solid #0D1E35" } }),
+                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615", color: "#2A1A4A", textAlign: "center" }) }, "-"),
+                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                    React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Conc +1:"),
+                                                    React.createElement(BoomGuardCell, { guard: boomSupport.bConc, sm: sm2, boomGuards: boomGuards }))),
+                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                    React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Rest:"),
+                                                    React.createElement(BoomGuardCell, { guard: boomSupport.bRest, sm: sm2, boomGuards: boomGuards }))),
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }, rConcession && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+                                                    React.createElement("span", { style: { fontSize: "10px", color: "#5A6A4A" } }, "Conc:"),
+                                                    React.createElement(BreakCell, { team: rConcession, sm: sm2, guards: guards }))),
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }),
+                                                React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#664400", fontSize: "11px", fontStyle: "italic" }) }, "Rest")))));
+                                    }
+                                    const { ch1ch4, slDv, bullpen, outTeam, outReason, h, m } = slot;
+                                    return (React.createElement("tr", { key: idx, className: rowCls, style: { borderLeft: lb } },
+                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { fontWeight: 600, whiteSpace: "nowrap", color: isCur ? "#FFD700" : conflict ? "#FF8855" : isC3 ? "#A5B4FC" : isBoom ? "#D8A0F0" : "#C8E0F0", background: isCur ? "rgba(0,200,255,0.07)" : "transparent" }) },
                                             fmt(h, m),
-                                            isCur && React.createElement(NowTag, null)),
-                                        closing ? (React.createElement("td", { colSpan: 12, style: Object.assign(Object.assign({}, TD), { background: "#0C0508", color: "#6A1E1E", textAlign: "center", fontSize: "11px", letterSpacing: "3px", fontWeight: 700 }) }, "POOL CLOSING - ALL STATIONS EMPTY")) : (React.createElement(React.Fragment, null,
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
-                                            React.createElement("td", { style: { width: "4px", background: "#060A10", padding: 0, borderBottom: "1px solid #0D1E35" } }),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) },
-                                                React.createElement("div", null,
-                                                    rSlide && React.createElement(BreakCell, { team: rSlide, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                                    boomSupport && React.createElement("div", { style: { marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" } },
-                                                        React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
-                                                        React.createElement(BoomGuardCell, { guard: boomSupport.bSlide, sm: sm2, boomGuards: boomGuards })))),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
-                                            React.createElement("td", { style: { width: "4px", background: "#0A061A", padding: 0, borderBottom: "1px solid #0D1E35" } }),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615", color: "#2A1A4A", textAlign: "center" }) }, "-"),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
-                                                React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Conc +1:"),
-                                                React.createElement(BoomGuardCell, { guard: boomSupport.bConc, sm: sm2, boomGuards: boomGuards }))),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
-                                                React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Rest:"),
-                                                React.createElement(BoomGuardCell, { guard: boomSupport.bRest, sm: sm2, boomGuards: boomGuards }))),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }, rConcession && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
-                                                React.createElement("span", { style: { fontSize: "10px", color: "#5A6A4A" } }, "Conc:"),
-                                                React.createElement(BreakCell, { team: rConcession, sm: sm2, guards: guards }))),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#664400", fontSize: "11px", fontStyle: "italic" }) }, "Rest")))));
-                                }
-                                const { ch1ch4, slDv, bullpen, outTeam, outReason, h, m } = slot;
-                                return (React.createElement("tr", { key: idx, className: rowCls, style: { borderLeft: lb } },
-                                    React.createElement("td", { style: Object.assign(Object.assign({}, TD), { fontWeight: 600, whiteSpace: "nowrap", color: isCur ? "#FFD700" : conflict ? "#FF8855" : isC3 ? "#A5B4FC" : isBoom ? "#D8A0F0" : "#C8E0F0", background: isCur ? "rgba(0,200,255,0.07)" : "transparent" }) },
-                                        fmt(h, m),
-                                        isCur && React.createElement(NowTag, null),
-                                        conflict && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#FF4400", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "MGR"),
-                                        isBoom && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#9B30D0", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "BOOM")),
-                                    isC3 ? React.createElement(ClosedCell, null) : React.createElement(ActiveCell, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                    React.createElement(ActiveCell, { team: ch1ch4, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                    React.createElement(PairDiv, null),
-                                    React.createElement(ActiveCell, { team: slDv, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                    React.createElement(ActiveCell, { team: slDv, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                    React.createElement("td", { style: { width: "4px", background: isBoom ? "#0A0620" : "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }),
-                                    boomData ? (React.createElement(React.Fragment, null,
-                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
-                                            React.createElement(BoomGuardCell, { guard: boomData.ch5, sm: sm2, boomGuards: boomGuards })),
-                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
-                                            React.createElement(BoomGuardCell, { guard: boomData.mush, sm: sm2, boomGuards: boomGuards })),
-                                        React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(80,20,120,0.06)", color: "#6A4A7A" }) },
-                                            React.createElement(BoomGuardCell, { guard: boomData.bbp, sm: sm2, boomGuards: boomGuards })))) : (React.createElement("td", { colSpan: 3, style: Object.assign(Object.assign({}, TD), { background: "#06040A", color: "#2A1A3A", textAlign: "center", fontSize: "11px" }) }, "-")),
-                                    React.createElement("td", { style: TD }, bullpen ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, isC3 ? (React.createElement(React.Fragment, null,
-                                        React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                        React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", paddingTop: "4px", borderTop: "1px solid #12294A" } },
-                                            React.createElement("span", { style: { fontSize: "10px", color: "#818CF8" } }, "+ free:"),
-                                            React.createElement(BullpenName, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs, dim: true }))))
-                                        : isC5 ? (React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }))
-                                            : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
-                                    React.createElement("td", { style: TD },
-                                        React.createElement(SlotModeBtn, { slotKey: slotKey, mode: mode, onChange: setMode })),
-                                    React.createElement("td", { style: TD }, outTeam && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
-                                        React.createElement(TeamChip, { team: outTeam }),
-                                        React.createElement("span", { style: { fontSize: "11px", color: "#8B6A2A" } }, outReason === "Not arrived" ? "Not arrived" : outReason === "End of shift" ? "Done" : "On break")))));
-                            })))))),
+                                            isCur && React.createElement(NowTag, null),
+                                            conflict && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#FF4400", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "MGR"),
+                                            isBoom && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#9B30D0", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "BOOM")),
+                                        isC3 ? React.createElement(ClosedCell, null) : React.createElement(ActiveCell, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                        React.createElement(ActiveCell, { team: ch1ch4, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                        React.createElement(PairDiv, null),
+                                        React.createElement(ActiveCell, { team: slDv, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                        React.createElement(ActiveCell, { team: slDv, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                        anyBoom && React.createElement("td", { style: { width: "4px", background: isBoom ? "#0A0620" : "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }),
+                                        anyBoom && (boomData ? (React.createElement(React.Fragment, null,
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
+                                                React.createElement(BoomGuardCell, { guard: boomData.ch5, sm: sm2, boomGuards: boomGuards })),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
+                                                React.createElement(BoomGuardCell, { guard: boomData.mush, sm: sm2, boomGuards: boomGuards })),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(80,20,120,0.06)", color: "#6A4A7A" }) },
+                                                React.createElement(BoomGuardCell, { guard: boomData.bbp, sm: sm2, boomGuards: boomGuards })))) : (React.createElement("td", { colSpan: 3, style: Object.assign(Object.assign({}, TD), { background: "#06040A", color: "#2A1A3A", textAlign: "center", fontSize: "11px" }) }, "-"))),
+                                        React.createElement("td", { style: TD }, bullpen ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, isC3 ? (React.createElement(React.Fragment, null,
+                                            React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                            React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", paddingTop: "4px", borderTop: "1px solid #12294A" } },
+                                                React.createElement("span", { style: { fontSize: "10px", color: "#818CF8" } }, "+ free:"),
+                                                React.createElement(BullpenName, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs, dim: true }))))
+                                            : isC5 ? (React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }))
+                                                : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
+                                        React.createElement("td", { style: TD },
+                                            React.createElement(SlotModeBtn, { slotKey: slotKey, mode: mode, onChange: setMode })),
+                                        React.createElement("td", { style: TD }, outTeam && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
+                                            React.createElement(TeamChip, { team: outTeam }),
+                                            React.createElement("span", { style: { fontSize: "11px", color: "#8B6A2A" } }, outReason === "Not arrived" ? "Not arrived" : outReason === "End of shift" ? "Done" : "On break")))));
+                                })))));
+                    })())),
                 tab === "breaks" && (React.createElement("div", null,
                     React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", marginBottom: "20px" } }, "BREAK COVERAGE - SCHEDULED TEAMS + BOOM SUPPORT (1:45-4:45)"),
                     React.createElement("div", { style: { display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "24px" } },
@@ -694,7 +697,8 @@ function App() {
                                     React.createElement("td", { style: TD }, slot.rConcession && React.createElement(BreakCell, { team: slot.rConcession, sm: sm2, guards: guards })),
                                     React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.05)" }) }, slot.boomSupport ? React.createElement(BoomGuardCell, { guard: slot.boomSupport.bConc, sm: sm2, boomGuards: boomGuards }) : React.createElement("span", { style: { color: "#3A1A5A", fontSize: "11px" } }, "-")),
                                     React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.03)" }) }, slot.boomSupport ? React.createElement(BoomGuardCell, { guard: slot.boomSupport.bRest, sm: sm2, boomGuards: boomGuards }) : React.createElement("span", { style: { color: "#3A1A5A", fontSize: "11px" } }, "-")));
-                            })))))),
+                            })))),
+                    "); })()}")),
                 tab === "minutes" && (React.createElement("div", null,
                     React.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: "24px", gap: "12px", flexWrap: "wrap" } },
                         React.createElement("button", { className: "tog", onClick: () => setMinsView("sofar"), style: { borderRadius: "6px 0 0 6px", background: minsView === "sofar" ? "#00C2E0" : "none", color: minsView === "sofar" ? "#000" : "#3A6A8A", borderColor: minsView === "sofar" ? "#00C2E0" : "#1B3A6B" } }, "SO FAR TODAY"),
