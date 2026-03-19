@@ -263,6 +263,27 @@ function BoomGuardCell({ guard, sm, boomGuards }) {
         React.createElement("span", { style: { background: BOOM_COLORS[guard], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, guard),
         active && React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, g.name));
 }
+function BoomOrBullpenCell({ guard, sm, boomGuards, bullpen, guards, splitSegs }) {
+    const g = boomGuards[guard];
+    const hasName = g.name.trim() && sm >= g.start && sm <= g.end;
+    if (hasName) {
+        return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+            React.createElement("span", { style: { background: BOOM_COLORS[guard], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, guard),
+            React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, g.name));
+    }
+    // Fallback: show bullpen team
+    if (!bullpen)
+        return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+            React.createElement("span", { style: { background: BOOM_COLORS[guard], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, guard),
+            React.createElement("span", { style: { fontSize: "10px", color: "#FF4444", fontStyle: "italic" } }, "empty"));
+    return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "2px" } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px" } },
+            React.createElement("span", { style: { background: BOOM_COLORS[guard], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, guard),
+            React.createElement("span", { style: { fontSize: "9px", color: "#FF6633", fontWeight: 700, letterSpacing: "1px" } }, "FILL \u2192")),
+        React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm, guards: guards, splitSegs: splitSegs }),
+        React.createElement("div", { style: { fontSize: "9px", color: "#5A6A7A", letterSpacing: "1px", textAlign: "center" } }, "or"),
+        React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm, guards: guards, splitSegs: splitSegs }));
+}
 function BullpenName({ team, gi, sm, guards, splitSegs, dim }) {
     const segs = splitSegs && splitSegs[team + "_" + gi];
     const activeSeg = segs && segs.find(s => sm >= s.start && sm <= s.end);
@@ -466,25 +487,22 @@ function App() {
                                 gn(slDv, 1) ? " - " + gn(slDv, 1) : ""))),
                     boom && (React.createElement("div", { style: { background: BOOM_DARK["E"], border: "1px solid #9B30D044", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "10px", alignItems: "center" } },
                         React.createElement("span", { style: { color: "#E879F9", fontFamily: "'Bebas Neue'", fontSize: "14px", letterSpacing: "1px" } }, "BOOM"),
-                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "2px" } },
-                            React.createElement("span", { style: { fontSize: "11px", color: "#9B30A0" } },
-                                "Ch5: ",
-                                React.createElement("span", { style: { color: BOOM_COLORS[boom.ch5] } },
-                                    boom.ch5,
-                                    bn(boom.ch5) ? " - " + bn(boom.ch5) : "")),
-                            React.createElement("span", { style: { fontSize: "11px", color: "#9B30A0" } },
-                                "Mush: ",
-                                React.createElement("span", { style: { color: BOOM_COLORS[boom.mush] } },
-                                    boom.mush,
-                                    bn(boom.mush) ? " - " + bn(boom.mush) : "")),
-                            React.createElement("span", { style: { fontSize: "11px", color: "#5A4A6A" } },
-                                "BP: ",
-                                boom.bbp,
-                                bn(boom.bbp) ? " - " + bn(boom.bbp) : "")))),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } }, [{ pos: "Ch5", g: boom.ch5 }, { pos: "Mush", g: boom.mush }, { pos: "BP", g: boom.bbp }].map(({ pos, g }) => {
+                            const name = bn(g);
+                            return React.createElement("div", { key: pos, style: { display: "flex", alignItems: "center", gap: "5px" } },
+                                React.createElement("span", { style: { fontSize: "10px", color: "#6A4A7A", minWidth: "32px" } },
+                                    pos,
+                                    ":"),
+                                React.createElement("span", { style: { color: BOOM_COLORS[g], fontFamily: "'Bebas Neue'", fontSize: "13px" } }, g),
+                                name ? React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, name)
+                                    : React.createElement("span", { style: { fontSize: "10px", color: "#FF6633", fontWeight: 700 } },
+                                        "FILL \u2192 ",
+                                        React.createElement("span", { style: { color: TEAM_COLORS[bullpen], fontFamily: "'Bebas Neue'", fontSize: "13px" } }, bullpen)));
+                        })))),
                     bullpen && mode === "normal" && React.createElement("div", { style: { background: "#0C1020", border: "1px solid #1A2040", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
                         React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } }, "Bullpen"),
                         React.createElement(TeamChip, { team: bullpen })),
-                    bullpen && mode === "boom" && React.createElement("div", { style: { background: "#0C1020", border: "1px solid #1A2040", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
+                    bullpen && mode === "boom" && BOOM_GUARDS.every(g => boomGuards[g].name.trim()) && React.createElement("div", { style: { background: "#0C1020", border: "1px solid #1A2040", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
                         React.createElement("span", { style: { fontSize: "11px", color: "#3A6A8A" } }, "Bullpen"),
                         React.createElement(TeamChip, { team: bullpen })),
                     outTeam && React.createElement("div", { style: { background: "#1A1206", border: "1px solid #6B4A1A", borderRadius: "8px", padding: "5px 12px", display: "flex", gap: "7px", alignItems: "center" } },
@@ -626,11 +644,11 @@ function App() {
                                         anyBoom && React.createElement("td", { style: { width: "4px", background: isBoom ? "#0A0620" : "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }),
                                         anyBoom && (boomData ? (React.createElement(React.Fragment, null,
                                             React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
-                                                React.createElement(BoomGuardCell, { guard: boomData.ch5, sm: sm2, boomGuards: boomGuards })),
+                                                React.createElement(BoomOrBullpenCell, { guard: boomData.ch5, sm: sm2, boomGuards: boomGuards, bullpen: bullpen, guards: guards, splitSegs: splitSegs })),
                                             React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
-                                                React.createElement(BoomGuardCell, { guard: boomData.mush, sm: sm2, boomGuards: boomGuards })),
-                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(80,20,120,0.06)", color: "#6A4A7A" }) },
-                                                React.createElement(BoomGuardCell, { guard: boomData.bbp, sm: sm2, boomGuards: boomGuards })))) : (React.createElement("td", { colSpan: 3, style: Object.assign(Object.assign({}, TD), { background: "#06040A", color: "#2A1A3A", textAlign: "center", fontSize: "11px" }) }, "-"))),
+                                                React.createElement(BoomOrBullpenCell, { guard: boomData.mush, sm: sm2, boomGuards: boomGuards, bullpen: bullpen, guards: guards, splitSegs: splitSegs })),
+                                            React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(80,20,120,0.06)" }) },
+                                                React.createElement(BoomOrBullpenCell, { guard: boomData.bbp, sm: sm2, boomGuards: boomGuards, bullpen: bullpen, guards: guards, splitSegs: splitSegs })))) : (React.createElement("td", { colSpan: 3, style: Object.assign(Object.assign({}, TD), { background: "#06040A", color: "#2A1A3A", textAlign: "center", fontSize: "11px" }) }, "-"))),
                                         React.createElement("td", { style: TD }, bullpen ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, isC3 ? (React.createElement(React.Fragment, null,
                                             React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
                                             React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
@@ -642,7 +660,12 @@ function App() {
                                                 React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
                                                 React.createElement("div", { style: { fontSize: "9px", color: "#5A6A7A", textAlign: "center", letterSpacing: "1px" } }, "or"),
                                                 React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs })))
-                                                : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
+                                                : isBoom ? (BOOM_GUARDS.every(g => boomGuards[g].name.trim()) ?
+                                                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
+                                                        React.createElement(TeamChip, { team: bullpen }),
+                                                        React.createElement("span", { style: { fontSize: "10px", color: "#6A4A7A" } }, "on deck"))
+                                                    : React.createElement("span", { style: { fontSize: "10px", color: "#FF6633", fontStyle: "italic" } }, "covering boom \u2191"))
+                                                    : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
                                         React.createElement("td", { style: TD },
                                             React.createElement(SlotModeBtn, { slotKey: slotKey, mode: mode, onChange: setMode })),
                                         React.createElement("td", { style: TD }, outTeam && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
