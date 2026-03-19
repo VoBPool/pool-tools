@@ -54,10 +54,10 @@
     const { useState, useEffect } = React;
 
     const storage = {
-      get:    async (k)    => { try { const v=localStorage.getItem(k); return v?{value:v}:null; } catch(e){return null;} },
-      set:    async (k,v)  => { try { localStorage.setItem(k,v); return {key:k,value:v}; } catch(e){return null;} },
-      remove: async (k)    => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch(e){return null;} },
-      list:   async (pfx)  => { try { const ks=Object.keys(localStorage).filter(k=>!pfx||k.startsWith(pfx)); return {keys:ks}; } catch(e){return {keys:[]};} },
+      get: async (k) => { try { const v=localStorage.getItem(k); return v?{value:v}:null; } catch(e){return null;} },
+      set: async (k,v) => { try { localStorage.setItem(k,v); return {key:k,value:v}; } catch(e){return null;} },
+      remove: async (k) => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch(e){return null;} },
+      list: async (pfx) => { try { const ks=Object.keys(localStorage).filter(k=>!pfx||k.startsWith(pfx)); return {keys:ks}; } catch(e){return {keys:[]};} },
     };
 const TEAM_COLORS = { A: "#00C2E0", B: "#FF6B35", C: "#2ECC71", D: "#F1C40F" };
 const TEAM_DARK = { A: "#002A36", B: "#2E1200", C: "#003318", D: "#2E2700" };
@@ -285,7 +285,7 @@ function BreakCell({ team, sm, guards, splitSegs }) {
 }
 function PairDiv() { return React.createElement("td", { style: { width: "4px", background: "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }); }
 const TD = { padding: "8px 12px", borderBottom: "1px solid #0D1E35", fontSize: "13px" };
-const TH0 = { padding: "10px 12px", background: "#0C1B2E", color: "#00D8FF", fontSize: "10px", letterSpacing: "2px", textAlign: "left", borderBottom: "2px solid #00B4D8", fontFamily: "'DM Sans',sans-serif", fontWeight: 700, whiteSpace: "nowrap" };
+const TH0 = { padding: "10px 12px", background: "#0C1B2E", color: "#00D8FF", fontSize: "10px", letterSpacing: "2px", textAlign: "left", borderBottom: "2px solid #00B4D8", fontFamily: "'DM Sans',sans-serif", fontWeight: 700, whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 10 };
 function SlotModeBtn({ slotKey, mode, onChange }) {
     return React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } },
         React.createElement("button", { onClick: () => onChange(slotKey, "chair5"), style: { cursor: "pointer", border: "2px solid " + (mode === "chair5" ? "#F97316" : "#2A3A50"), borderRadius: "5px", padding: "5px 10px", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px", whiteSpace: "nowrap", background: mode === "chair5" ? "#F97316" : "#0D1E35", color: mode === "chair5" ? "#000" : "#F97316" } }, mode === "chair5" ? "5 CHAIRS ON" : "+ CHAIR 5"),
@@ -620,7 +620,11 @@ function App() {
                                             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", paddingTop: "4px", borderTop: "1px solid #12294A" } },
                                                 React.createElement("span", { style: { fontSize: "10px", color: "#818CF8" } }, "+ free:"),
                                                 React.createElement(BullpenName, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs, dim: true }))))
-                                            : isC5 ? (React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }))
+                                            : isC5 ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                React.createElement("div", { style: { fontSize: "9px", color: "#F97316", letterSpacing: "2px", fontWeight: 700, marginBottom: "2px" } }, "CHAIR 5 \u2192"),
+                                                React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                                React.createElement("div", { style: { fontSize: "9px", color: "#5A6A7A", textAlign: "center", letterSpacing: "1px" } }, "or"),
+                                                React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs })))
                                                 : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
                                         React.createElement("td", { style: TD },
                                             React.createElement(SlotModeBtn, { slotKey: slotKey, mode: mode, onChange: setMode })),
