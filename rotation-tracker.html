@@ -243,14 +243,17 @@ function MinBar({ value, max, color }) {
             value,
             "m"));
 }
-function ActiveCell({ team, gi, sm, guards }) {
+function ActiveCell({ team, gi, sm, guards, splitSegs }) {
+    const segs = splitSegs && splitSegs[team + "_" + gi];
+    const activeSeg = segs && segs.find(s => sm >= s.start && sm <= s.end);
     const g = guards[team][gi];
-    const active = g.name.trim() && sm >= g.start && sm <= g.end;
-    const hasName = guards[team].some(x => x.name.trim());
+    const name = activeSeg ? activeSeg.name : (g.name.trim() && sm >= g.start && sm <= g.end ? g.name : "");
+    const active = name.trim().length > 0;
+    const hasName = guards[team].some(x => x.name.trim()) || (segs && segs.some(s => s.name.trim()));
     return React.createElement("td", { style: TD },
         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
             React.createElement("span", { style: { background: TEAM_COLORS[team], color: "#000", fontWeight: 900, padding: "1px 8px", borderRadius: "4px", fontSize: "13px", fontFamily: "'Bebas Neue'", letterSpacing: "1px", whiteSpace: "nowrap" } }, team),
-            active ? React.createElement("span", { style: { fontSize: "12px", color: "#8AAFCC" } }, g.name) : hasName && React.createElement("span", { style: { fontSize: "11px", color: "#334455", fontStyle: "italic" } }, "off shift")));
+            active ? React.createElement("span", { style: { fontSize: "12px", color: "#8AAFCC" } }, name) : hasName && React.createElement("span", { style: { fontSize: "11px", color: "#334455", fontStyle: "italic" } }, "off shift")));
 }
 function ClosedCell() { return React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#080810", color: "#2A3A4A", textAlign: "center", fontSize: "11px", fontStyle: "italic" }) }, "closed"); }
 function BoomGuardCell({ guard, sm, boomGuards }) {
@@ -260,15 +263,21 @@ function BoomGuardCell({ guard, sm, boomGuards }) {
         React.createElement("span", { style: { background: BOOM_COLORS[guard], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, guard),
         active && React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, g.name));
 }
-function BullpenName({ team, gi, sm, guards, dim }) {
+function BullpenName({ team, gi, sm, guards, splitSegs, dim }) {
+    const segs = splitSegs && splitSegs[team + "_" + gi];
+    const activeSeg = segs && segs.find(s => sm >= s.start && sm <= s.end);
     const g = guards[team][gi];
-    const active = g.name.trim() && sm >= g.start && sm <= g.end;
+    const name = activeSeg ? activeSeg.name : (g.name.trim() && sm >= g.start && sm <= g.end ? g.name : "");
     return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", opacity: dim ? 0.5 : 1 } },
         React.createElement("span", { style: { background: TEAM_COLORS[team], color: "#000", fontWeight: 900, padding: "1px 7px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } }, team),
-        active && React.createElement("span", { style: { fontSize: "11px", color: dim ? "#445566" : "#8AAFCC" } }, g.name));
+        name.trim() && React.createElement("span", { style: { fontSize: "11px", color: dim ? "#445566" : "#8AAFCC" } }, name));
 }
-function BreakCell({ team, sm, guards }) {
-    const names = guards[team].filter(g => g.name.trim() && sm >= g.start && sm <= g.end).map(g => g.name);
+function BreakCell({ team, sm, guards, splitSegs }) {
+    const names = guards[team].map((g, i) => {
+        const segs = splitSegs && splitSegs[team + "_" + i];
+        const activeSeg = segs && segs.find(s => sm >= s.start && sm <= s.end);
+        return activeSeg ? activeSeg.name : (g.name.trim() && sm >= g.start && sm <= g.end ? g.name : "");
+    }).filter(Boolean);
     const hasName = guards[team].some(x => x.name.trim());
     return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "7px" } },
         React.createElement("span", { style: { background: TEAM_COLORS[team], color: "#000", fontWeight: 900, padding: "1px 8px", borderRadius: "4px", fontSize: "13px", fontFamily: "'Bebas Neue'", letterSpacing: "1px" } }, team),
@@ -287,6 +296,7 @@ function App() {
     const [tab, setTab] = useState("schedule");
     const [guards, setGuards] = useState(DEFAULT_GUARDS);
     const [boomGuards, setBoomGuards] = useState(DEFAULT_BOOM);
+    const [splitSegs, setSplitSegs] = useState({}); // {"A_0":[{name,start,end},...]} for split shifts
     const [now, setNow] = useState(new Date());
     const [minsView, setMinsView] = useState("fullday");
     const [slotModes, setSlotModes] = useState({});
@@ -308,12 +318,22 @@ function App() {
                                         const seg = segs[i];
                                         if (!seg)
                                             return g;
-                                        // primary segment (first one)
                                         return { name: (seg[0] && seg[0].name) || "", start: (seg[0] && seg[0].start) || g.start, end: (seg[0] && seg[0].end) || g.end };
                                     });
                                 }
                             });
                             return next;
+                        });
+                        // Store ALL segments for split shift support
+                        setSplitSegs(() => {
+                            const ss = {};
+                            Object.entries(d.guards).forEach(([team, segs]) => {
+                                segs.forEach((posSegs, i) => {
+                                    if (posSegs && posSegs.length > 1)
+                                        ss[team + "_" + i] = posSegs;
+                                });
+                            });
+                            return ss;
                         });
                     }
                     if (d.boomGuards) {
@@ -346,6 +366,16 @@ function App() {
                                 next[team] = next[team].map((g, i) => { const s = segs[i]; return s ? { name: (s[0] && s[0].name) || "", start: (s[0] && s[0].start) || g.start, end: (s[0] && s[0].end) || g.end } : g; });
                         });
                         return next;
+                    });
+                    setSplitSegs(() => {
+                        const ss = {};
+                        Object.entries(d.guards).forEach(([team, segs]) => {
+                            segs.forEach((posSegs, i) => {
+                                if (posSegs && posSegs.length > 1)
+                                    ss[team + "_" + i] = posSegs;
+                            });
+                        });
+                        return ss;
                     });
                 }
                 if (d.boomGuards) {
@@ -404,7 +434,8 @@ function App() {
                 const { ch1ch4, slDv, bullpen, outTeam, outReason, h, m, chair5Conflict } = curSlot;
                 const sm2 = h * 60 + m, slotKey = h * 100 + m, mode = getMode(slotKey);
                 const boom = mode === "boom" ? BOOM_CYCLE[m] : null;
-                const gn = (t, gi) => { const g = guards[t][gi]; return g.name.trim() && sm2 >= g.start && sm2 <= g.end ? g.name : null; };
+                const gn = (t, gi) => { const segs = splitSegs && splitSegs[t + "_" + gi]; const activeSeg = segs && segs.find(s => sm2 >= s.start && sm2 <= s.end); if (activeSeg)
+                    return activeSeg.name.trim() || null; const g = guards[t][gi]; return g.name.trim() && sm2 >= g.start && sm2 <= g.end ? g.name : null; };
                 const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
                 return (React.createElement("div", { style: { background: "#080F1A", borderBottom: "1px solid #12294A", padding: "10px 24px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } },
                     React.createElement("span", { style: { fontSize: "10px", letterSpacing: "3px", color: "#3A6A8A" } }, "NOW:"),
@@ -542,7 +573,7 @@ function App() {
                                             React.createElement("td", { style: { width: "4px", background: "#060A10", padding: 0, borderBottom: "1px solid #0D1E35" } }),
                                             React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) },
                                                 React.createElement("div", null,
-                                                    rSlide && React.createElement(BreakCell, { team: rSlide, sm: sm2, guards: guards }),
+                                                    rSlide && React.createElement(BreakCell, { team: rSlide, sm: sm2, guards: guards, splitSegs: splitSegs }),
                                                     boomSupport && React.createElement("div", { style: { marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" } },
                                                         React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
                                                         React.createElement(BoomGuardCell, { guard: boomSupport.bSlide, sm: sm2, boomGuards: boomGuards })))),
@@ -568,11 +599,11 @@ function App() {
                                         isCur && React.createElement(NowTag, null),
                                         conflict && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#FF4400", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "MGR"),
                                         isBoom && React.createElement("span", { style: { marginLeft: "6px", fontSize: "9px", background: "#9B30D0", color: "#fff", borderRadius: "3px", padding: "1px 5px", verticalAlign: "middle" } }, "BOOM")),
-                                    isC3 ? React.createElement(ClosedCell, null) : React.createElement(ActiveCell, { team: ch1ch4, gi: 0, sm: sm2, guards: guards }),
-                                    React.createElement(ActiveCell, { team: ch1ch4, gi: 1, sm: sm2, guards: guards }),
+                                    isC3 ? React.createElement(ClosedCell, null) : React.createElement(ActiveCell, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                    React.createElement(ActiveCell, { team: ch1ch4, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
                                     React.createElement(PairDiv, null),
-                                    React.createElement(ActiveCell, { team: slDv, gi: 0, sm: sm2, guards: guards }),
-                                    React.createElement(ActiveCell, { team: slDv, gi: 1, sm: sm2, guards: guards }),
+                                    React.createElement(ActiveCell, { team: slDv, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                    React.createElement(ActiveCell, { team: slDv, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
                                     React.createElement("td", { style: { width: "4px", background: isBoom ? "#0A0620" : "#0A1828", padding: 0, borderBottom: "1px solid #0D1E35" } }),
                                     boomData ? (React.createElement(React.Fragment, null,
                                         React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(155,48,208,0.06)" }) },
@@ -582,12 +613,12 @@ function App() {
                                         React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "rgba(80,20,120,0.06)", color: "#6A4A7A" }) },
                                             React.createElement(BoomGuardCell, { guard: boomData.bbp, sm: sm2, boomGuards: boomGuards })))) : (React.createElement("td", { colSpan: 3, style: Object.assign(Object.assign({}, TD), { background: "#06040A", color: "#2A1A3A", textAlign: "center", fontSize: "11px" }) }, "-")),
                                     React.createElement("td", { style: TD }, bullpen ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "4px" } }, isC3 ? (React.createElement(React.Fragment, null,
-                                        React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards }),
-                                        React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards }),
+                                        React.createElement(BullpenName, { team: bullpen, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs }),
+                                        React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }),
                                         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", paddingTop: "4px", borderTop: "1px solid #12294A" } },
                                             React.createElement("span", { style: { fontSize: "10px", color: "#818CF8" } }, "+ free:"),
-                                            React.createElement(BullpenName, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, dim: true }))))
-                                        : isC5 ? (React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards }))
+                                            React.createElement(BullpenName, { team: ch1ch4, gi: 0, sm: sm2, guards: guards, splitSegs: splitSegs, dim: true }))))
+                                        : isC5 ? (React.createElement(BullpenName, { team: bullpen, gi: 1, sm: sm2, guards: guards, splitSegs: splitSegs }))
                                             : (React.createElement(TeamChip, { team: bullpen })))) : React.createElement("span", { style: { color: "#3A4A5A", fontSize: "11px" } }, "-")),
                                     React.createElement("td", { style: TD },
                                         React.createElement(SlotModeBtn, { slotKey: slotKey, mode: mode, onChange: setMode })),
@@ -740,7 +771,7 @@ function App() {
                         React.createElement("span", null,
                             "Pushed: ",
                             new Date(plannerInfo.pushedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
-                        plannerInfo.hasSplit && React.createElement("span", { style: { color: "#F97316" } }, "Split shifts detected - check afternoon guards manually")),
+                        plannerInfo.hasSplit && React.createElement("span", { style: { color: "#22C55E", fontSize: "11px" } }, "Split shifts active")),
                     React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "16px", marginBottom: "28px" } }, TEAMS.map(team => (React.createElement("div", { key: team, style: { background: "#0C1B2E", borderTop: "3px solid " + TEAM_COLORS[team], border: "1px solid " + TEAM_COLORS[team] + "33", borderRadius: "10px", padding: "18px" } },
                         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" } },
                             React.createElement(TeamBadge, { team: team }),
