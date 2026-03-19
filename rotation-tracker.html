@@ -297,6 +297,7 @@ function App() {
     const [guards, setGuards] = useState(DEFAULT_GUARDS);
     const [boomGuards, setBoomGuards] = useState(DEFAULT_BOOM);
     const [splitSegs, setSplitSegs] = useState({}); // {"A_0":[{name,start,end},...]} for split shifts
+    const [showCover, setShowCover] = useState({}); // {A_0:true} show cover input for this slot
     const [now, setNow] = useState(new Date());
     const [minsView, setMinsView] = useState("fullday");
     const [slotModes, setSlotModes] = useState({});
@@ -403,6 +404,12 @@ function App() {
     const curSlot = SCHEDULE.find(s => s.h === ch && s.m === cm);
     function setMode(key, targetMode) { setSlotModes(prev => { const cur = prev[key] || "normal"; return Object.assign(Object.assign({}, prev), { [key]: cur === targetMode ? "normal" : targetMode }); }); }
     function getMode(key) { return slotModes[key] || "normal"; }
+    function boomOnAtMin(sm) {
+        return ACTIVE_KEYS.some(k => {
+            const h = Math.floor(k / 100), m = k % 100, slotMin = h * 60 + m;
+            return Math.abs(slotMin - sm) <= 15 && getMode(k) === "boom";
+        });
+    }
     const chair5Count = ACTIVE_KEYS.filter(k => getMode(k) === "chair5").length;
     const chair3Count = ACTIVE_KEYS.filter(k => getMode(k) === "chair3").length;
     const fullDay = computeMinutes(Infinity, slotModes);
@@ -489,6 +496,7 @@ function App() {
             isOpen && curSlot && curSlot.type === "rest" && (() => {
                 const { rSlide, rConcession, closing, boomSupport } = curSlot;
                 const sm2 = curSlot.h * 60 + 45;
+                const boomActive = boomOnAtMin(sm2);
                 const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
                 return (React.createElement("div", { style: { background: "#0E0A02", borderBottom: "1px solid #5C3A10", padding: "10px 24px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" } },
                     React.createElement("span", { style: { fontSize: "11px", letterSpacing: "3px", color: "#FF4444", fontWeight: 700 } }, "REST BREAK"),
@@ -496,7 +504,7 @@ function App() {
                         React.createElement("div", { style: { background: TEAM_DARK[rSlide], border: "1px solid " + TEAM_COLORS[rSlide] + "55", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "8px", alignItems: "center" } },
                             React.createElement("span", { style: { fontSize: "10px", color: "#3A6A8A" } }, "Slide"),
                             React.createElement(TeamChip, { team: rSlide }),
-                            boomSupport && React.createElement(React.Fragment, null,
+                            boomActive && boomSupport && React.createElement(React.Fragment, null,
                                 React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
                                 React.createElement("span", { style: { background: BOOM_COLORS[boomSupport.bSlide], color: "#000", fontWeight: 900, padding: "1px 6px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } },
                                     boomSupport.bSlide,
@@ -504,12 +512,12 @@ function App() {
                         React.createElement("div", { style: { background: TEAM_DARK[rConcession], border: "1px solid " + TEAM_COLORS[rConcession] + "55", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "8px", alignItems: "center" } },
                             React.createElement("span", { style: { fontSize: "10px", color: "#3A6A8A" } }, "Conc"),
                             React.createElement(TeamChip, { team: rConcession }),
-                            boomSupport && React.createElement(React.Fragment, null,
+                            boomActive && boomSupport && React.createElement(React.Fragment, null,
                                 React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
                                 React.createElement("span", { style: { background: BOOM_COLORS[boomSupport.bConc], color: "#000", fontWeight: 900, padding: "1px 6px", borderRadius: "4px", fontSize: "12px", fontFamily: "'Bebas Neue'" } },
                                     boomSupport.bConc,
                                     bn(boomSupport.bConc) ? " " + bn(boomSupport.bConc) : ""))),
-                        boomSupport && React.createElement("div", { style: { background: BOOM_DARK[boomSupport.bRest], border: "1px solid " + BOOM_COLORS[boomSupport.bRest] + "44", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "7px", alignItems: "center" } },
+                        boomActive && boomSupport && React.createElement("div", { style: { background: BOOM_DARK[boomSupport.bRest], border: "1px solid " + BOOM_COLORS[boomSupport.bRest] + "44", borderRadius: "8px", padding: "5px 10px", display: "flex", gap: "7px", alignItems: "center" } },
                             React.createElement("span", { style: { fontSize: "10px", color: "#6A4A7A" } }, "Boom rest:"),
                             React.createElement("span", { style: { color: BOOM_COLORS[boomSupport.bRest], fontFamily: "'Bebas Neue'", fontSize: "14px" } }, boomSupport.bRest))),
                     closing && React.createElement("span", { style: { fontSize: "11px", color: "#8B2020", letterSpacing: "2px" } }, "POOL CLOSING - ALL STATIONS EMPTY")));
@@ -529,6 +537,14 @@ function App() {
                             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "5px" } },
                                 React.createElement("div", { style: { width: 10, height: 10, borderRadius: "2px", background: "#E879F9" } }),
                                 React.createElement("span", { style: { fontSize: "11px", color: "#C8A0E0" } }, "+BOOM = 6 chairs (Ch5 + Mushroom)")))),
+                    ACTIVE_KEYS.some(k => getMode(k) === "boom") && BOOM_GUARDS.some(g => !boomGuards[g].name.trim()) && (React.createElement("div", { style: { background: "#1A0A00", border: "1px solid #F9731644", borderRadius: "8px", padding: "10px 16px", marginBottom: "12px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } },
+                        React.createElement("span", { style: { fontSize: "18px" } }, "\u26A0\uFE0F"),
+                        React.createElement("div", { style: { flex: 1 } },
+                            React.createElement("div", { style: { fontSize: "12px", color: "#F97316", fontWeight: 700, letterSpacing: "1px" } }, "BOOM SHORT-STAFFED"),
+                            React.createElement("div", { style: { fontSize: "11px", color: "#8B5A2A", marginTop: "2px" } },
+                                BOOM_GUARDS.filter(g => !boomGuards[g].name.trim()).map(g => "Guard " + g).join(", "),
+                                " not filled \u2014 go to Roster tab to add cover guards")),
+                        React.createElement("button", { onClick: () => setTab("teams"), style: { cursor: "pointer", border: "1px solid #F9731644", borderRadius: "6px", padding: "5px 12px", background: "#2A1200", color: "#F97316", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700 } }, "ADD GUARDS \u2192"))),
                     (() => {
                         const anyBoom = ACTIVE_KEYS.some(k => getMode(k) === "boom");
                         return (React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
@@ -565,6 +581,7 @@ function App() {
                                     const bn = (g) => { const gd = boomGuards[g]; return gd.name.trim() && sm2 >= gd.start && sm2 <= gd.end ? gd.name : null; };
                                     if (slot.type === "rest") {
                                         const { rSlide, rConcession, h, m, closing, boomSupport } = slot;
+                                        const boomActive = boomOnAtMin(h * 60 + m);
                                         return (React.createElement("tr", { key: idx, className: "trrest", style: { borderLeft: lb } },
                                             React.createElement("td", { style: Object.assign(Object.assign({}, TD), { color: isCur ? "#FFD700" : "#664400", fontWeight: 600, background: isCur ? "rgba(255,100,0,0.07)" : "#080604" }) },
                                                 fmt(h, m),
@@ -576,16 +593,16 @@ function App() {
                                                 React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) },
                                                     React.createElement("div", null,
                                                         rSlide && React.createElement(BreakCell, { team: rSlide, sm: sm2, guards: guards, splitSegs: splitSegs }),
-                                                        boomSupport && React.createElement("div", { style: { marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" } },
+                                                        boomActive && boomSupport && React.createElement("div", { style: { marginTop: "3px", display: "flex", alignItems: "center", gap: "5px" } },
                                                             React.createElement("span", { style: { fontSize: "9px", color: "#6A4A7A" } }, "+"),
                                                             React.createElement(BoomGuardCell, { guard: boomSupport.bSlide, sm: sm2, boomGuards: boomGuards })))),
                                                 React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C", color: "#2A3A4A", textAlign: "center" }) }, "-"),
                                                 anyBoom && React.createElement("td", { style: { width: "4px", background: "#0A061A", padding: 0, borderBottom: "1px solid #0D1E35" } }),
                                                 anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615", color: "#2A1A4A", textAlign: "center" }) }, "-"),
-                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomActive && boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
                                                     React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Conc +1:"),
                                                     React.createElement(BoomGuardCell, { guard: boomSupport.bConc, sm: sm2, boomGuards: boomGuards }))),
-                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
+                                                anyBoom && React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#0A0615" }) }, boomActive && boomSupport && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "3px" } },
                                                     React.createElement("div", { style: { fontSize: "9px", color: "#6A4A7A" } }, "Rest:"),
                                                     React.createElement(BoomGuardCell, { guard: boomSupport.bRest, sm: sm2, boomGuards: boomGuards }))),
                                                 React.createElement("td", { style: Object.assign(Object.assign({}, TD), { background: "#08080C" }) }, rConcession && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "6px" } },
@@ -788,16 +805,39 @@ function App() {
                                     "TEAM ",
                                     team),
                                 React.createElement("div", { style: { fontSize: "10px", color: "#3A6A8A" } }, team === "A" ? "12pm - 6pm" : team === "D" ? "2pm - 6:45pm" : "12pm - 6:45pm"))),
-                        [0, 1].map(i => (React.createElement("div", { key: i, style: { background: "#08121E", border: "1px solid #12294A", borderRadius: "8px", padding: "12px", marginBottom: "8px" } },
-                            React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "6px" } },
-                                "GUARD ",
-                                i + 1,
-                                " - ",
-                                i === 0 ? "Chair 1 / Slide" : "Chair 4 / Diving Board"),
-                            React.createElement("input", { value: guards[team][i].name, onChange: e => upd(team, i, "name", e.target.value), placeholder: "Full name...", style: { width: "100%", background: "#0D1E35", border: "1px solid " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "7px 10px", color: "#C8E0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", marginBottom: "8px" } }),
-                            React.createElement("div", { style: { display: "flex", gap: "8px" } }, ["start", "end"].map(field => (React.createElement("div", { key: field, style: { flex: 1 } },
-                                React.createElement("div", { style: { fontSize: "9px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "3px" } }, field === "start" ? "START" : "END"),
-                                React.createElement("select", { value: guards[team][i][field], onChange: e => upd(team, i, field, Number(e.target.value)), style: { width: "100%", background: "#0D1E35", border: "1px solid " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "6px 8px", color: "#C8E0F0", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", cursor: "pointer" } }, TIME_OPTIONS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label)))))))))))))),
+                        [0, 1].map(i => {
+                            const coverKey = team + "_" + i;
+                            const coverSeg = (splitSegs[coverKey] && splitSegs[coverKey][1]) || { name: "", start: 720, end: 1125 };
+                            const hasCover = coverSeg.name.trim().length > 0 || showCover[coverKey];
+                            function setCoverField(field, val) {
+                                setSplitSegs(prev => {
+                                    const existing = prev[coverKey] || [{ name: guards[team][i].name, start: guards[team][i].start, end: guards[team][i].end }];
+                                    const seg1 = existing[1] || { name: "", start: 720, end: 1125 };
+                                    const updated = [existing[0] || { name: guards[team][i].name, start: guards[team][i].start, end: guards[team][i].end }, Object.assign(Object.assign({}, seg1), { [field]: val })];
+                                    return Object.assign(Object.assign({}, prev), { [coverKey]: updated });
+                                });
+                            }
+                            return (React.createElement("div", { key: i, style: { background: "#08121E", border: "1px solid #12294A", borderRadius: "8px", padding: "12px", marginBottom: "8px" } },
+                                React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "6px" } },
+                                    "GUARD ",
+                                    i + 1,
+                                    " - ",
+                                    i === 0 ? "Chair 1 / Slide" : "Chair 4 / Diving Board"),
+                                React.createElement("input", { value: guards[team][i].name, onChange: e => upd(team, i, "name", e.target.value), placeholder: "Full name...", style: { width: "100%", background: "#0D1E35", border: "1px solid " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "7px 10px", color: "#C8E0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", marginBottom: "8px" } }),
+                                React.createElement("div", { style: { display: "flex", gap: "8px" } }, ["start", "end"].map(field => (React.createElement("div", { key: field, style: { flex: 1 } },
+                                    React.createElement("div", { style: { fontSize: "9px", letterSpacing: "2px", color: "#3A6A8A", marginBottom: "3px" } }, field === "start" ? "START" : "END"),
+                                    React.createElement("select", { value: guards[team][i][field], onChange: e => upd(team, i, field, Number(e.target.value)), style: { width: "100%", background: "#0D1E35", border: "1px solid " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "6px 8px", color: "#C8E0F0", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", cursor: "pointer" } }, TIME_OPTIONS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label))))))),
+                                !hasCover && React.createElement("button", { onClick: () => setShowCover(p => (Object.assign(Object.assign({}, p), { [coverKey]: true }))), style: { marginTop: "6px", cursor: "pointer", border: "1px dashed " + TEAM_COLORS[team] + "44", borderRadius: "6px", padding: "5px 10px", background: "none", color: TEAM_COLORS[team], fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, width: "100%" } }, "+ ADD COVER GUARD"),
+                                hasCover && React.createElement("div", { style: { marginTop: "8px", padding: "10px", background: "#0A1828", border: "1px solid #F9731633", borderRadius: "6px" } },
+                                    React.createElement("div", { style: { fontSize: "9px", letterSpacing: "2px", color: "#F97316", marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                                        React.createElement("span", null, "COVER GUARD"),
+                                        React.createElement("button", { onClick: () => { setSplitSegs(p => { const n = Object.assign({}, p); if (n[coverKey])
+                                                n[coverKey] = [n[coverKey][0]]; return n; }); setShowCover(p => (Object.assign(Object.assign({}, p), { [coverKey]: false }))); }, style: { cursor: "pointer", border: "none", background: "none", color: "#884422", fontSize: "11px", padding: 0 } }, "\u2715 remove")),
+                                    React.createElement("input", { value: coverSeg.name, onChange: e => setCoverField("name", e.target.value), placeholder: "Cover guard name...", style: { width: "100%", background: "#0D1E35", border: "1px solid #F9731644", borderRadius: "6px", padding: "7px 10px", color: "#FFB080", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", marginBottom: "8px" } }),
+                                    React.createElement("div", { style: { display: "flex", gap: "8px" } }, ["start", "end"].map(field => (React.createElement("div", { key: field, style: { flex: 1 } },
+                                        React.createElement("div", { style: { fontSize: "9px", color: "#8B5A2A", marginBottom: "3px" } }, field === "start" ? "COVER START" : "COVER END"),
+                                        React.createElement("select", { value: coverSeg[field], onChange: e => setCoverField(field, Number(e.target.value)), style: { width: "100%", background: "#0D1E35", border: "1px solid #F9731644", borderRadius: "6px", padding: "6px 8px", color: "#FFB080", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", cursor: "pointer" } }, TIME_OPTIONS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label))))))))));
+                        }))))),
                     React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#9B30D0", marginBottom: "14px" } }, "BOOM EXTENSION GUARDS (1pm - 5pm)"),
                     React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "16px" } }, BOOM_GUARDS.map(g => (React.createElement("div", { key: g, style: { background: BOOM_DARK[g], borderTop: "3px solid " + BOOM_COLORS[g], border: "1px solid " + BOOM_COLORS[g] + "33", borderRadius: "10px", padding: "18px" } },
                         React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" } },
@@ -806,9 +846,11 @@ function App() {
                                 React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "20px", color: BOOM_COLORS[g], letterSpacing: "3px", lineHeight: 1 } },
                                     "GUARD ",
                                     g),
-                                React.createElement("div", { style: { fontSize: "10px", color: "#6A4A7A" } }, "1:00 PM - 5:00 PM"),
-                                React.createElement("div", { style: { fontSize: "10px", color: "#6A4A7A" } }, "Chair 5, Mushroom, Break support"))),
-                        React.createElement("input", { value: boomGuards[g].name, onChange: e => updBoom(g, "name", e.target.value), placeholder: "Full name...", style: { width: "100%", background: "#0D1020", border: "1px solid " + BOOM_COLORS[g] + "44", borderRadius: "6px", padding: "7px 10px", color: "#E0D0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif" } })))))))))));
+                                React.createElement("div", { style: { fontSize: "10px", color: "#6A4A7A" } }, "Chair 5 \u00B7 Mushroom \u00B7 Break support"))),
+                        React.createElement("input", { value: boomGuards[g].name, onChange: e => updBoom(g, "name", e.target.value), placeholder: "Full name (leave blank if not coming in)...", style: { width: "100%", background: "#0D1020", border: "1px solid " + BOOM_COLORS[g] + "44", borderRadius: "6px", padding: "7px 10px", color: "#E0D0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", marginBottom: "8px" } }),
+                        React.createElement("div", { style: { display: "flex", gap: "8px" } }, ["start", "end"].map(field => (React.createElement("div", { key: field, style: { flex: 1 } },
+                            React.createElement("div", { style: { fontSize: "9px", letterSpacing: "2px", color: "#6A4A7A", marginBottom: "3px" } }, field === "start" ? "ARRIVES" : "LEAVES"),
+                            React.createElement("select", { value: boomGuards[g][field], onChange: e => updBoom(g, field, Number(e.target.value)), style: { width: "100%", background: "#0D1020", border: "1px solid " + BOOM_COLORS[g] + "44", borderRadius: "6px", padding: "6px 8px", color: "#E0D0F0", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", cursor: "pointer" } }, TIME_OPTIONS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label)))))))))))))))));
 }
 
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
