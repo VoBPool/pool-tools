@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -635,6 +636,17 @@ try {
   <button class="modal-close" onclick="closeImport()">Cancel</button>
 </div>
 
+<!-- Inventory lock -->
+<div id="invlock-overlay" class="overlay"></div>
+<div id="invlock-modal" class="modal-sheet">
+  <div class="modal-title">🔒 Inventory</div>
+  <div class="modal-sub">Enter the manager password to access inventory settings.</div>
+  <input id="invlock-pw" type="password" placeholder="Password..." style="width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid var(--border);font-size:16px;font-family:'Nunito';outline:none;margin-bottom:12px" onkeydown="if(event.key==='Enter')confirmInvLock()">
+  <div id="invlock-err" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:10px;display:none">❌ Wrong password</div>
+  <button class="bsv" onclick="confirmInvLock()">🔓 Unlock</button>
+  <button class="modal-close" onclick="closeInvLock()" style="margin-top:8px">Cancel</button>
+</div>
+
 <div id="newday-overlay" class="overlay" onclick="closeNewDay()"></div>
 <div id="newday-modal" class="modal-sheet">
   <div class="modal-title">🌅 New Day</div>
@@ -813,7 +825,7 @@ function swTab(tab){
   });
   closeCart();
   if(tab==='history')renderHistory();
-  if(tab==='inventory')renderInv();
+  if(tab==='inventory'){if(!invUnlocked){openInvLock();return;}renderInv();}
   if(tab==='reports')renderReports();
 }
 function swIT(tab){
@@ -1762,12 +1774,35 @@ function saveReorder(){
   toast('✅ Order saved!');
 }
 
+// ── Inventory lock ─────────────────────────────────────
+let invUnlocked=false;
+function openInvLock(){
+  document.getElementById('invlock-pw').value='';
+  document.getElementById('invlock-err').style.display='none';
+  document.getElementById('invlock-overlay').classList.add('open');
+  document.getElementById('invlock-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('invlock-pw').focus(),100);
+}
+function closeInvLock(){
+  document.getElementById('invlock-overlay').classList.remove('open');
+  document.getElementById('invlock-modal').classList.remove('open');
+}
+function confirmInvLock(){
+  if(document.getElementById('invlock-pw').value!=='waterfalls'){
+    document.getElementById('invlock-err').style.display='block';return;
+  }
+  invUnlocked=true;
+  closeInvLock();
+  swTab('inventory');
+}
+
 // ── Auto day reset ─────────────────────────────────────
 function checkNewDay(){
   const lastDay=localStorage.getItem('cs_last_day');
   const today=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York'});
   if(lastDay && lastDay!==today){
     orderCounter=0;
+    invUnlocked=false;
     save();
     toast('🌅 New day — order counter reset to #01');
   }
