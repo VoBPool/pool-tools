@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -309,6 +308,16 @@ body{display:flex;flex-direction:column}
 .ro-arrows{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
 .ro-arr{background:var(--light);border:none;border-radius:6px;width:28px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
 .ro-arr:active{background:var(--blue);color:#fff;}
+
+/* ── Cost & margin ────────────────────────────────────── */
+.cost-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px;margin-top:3px;}
+.cost-badge.good{background:#dcfce7;color:#166534;}
+.cost-badge.ok{background:#fef9c3;color:#854d0e;}
+.cost-badge.thin{background:#fee2e2;color:#991b1b;}
+.cost-badge.none{background:var(--light);color:var(--faint);}
+.ing-cost{font-size:11px;color:var(--faint);font-weight:700;margin-top:2px;}
+.margin-bar-wrap{height:6px;background:var(--light);border-radius:4px;overflow:hidden;margin-top:4px;}
+.margin-bar-fill{height:100%;border-radius:4px;}
 
 .rpt-section{background:var(--white);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
 .rpt-title{font-family:'Paytone One';font-size:15px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
@@ -785,6 +794,36 @@ const gI=id=>ingredients.find(i=>i.id===id);
 const gC=id=>combos.find(c=>c.id===id);
 const gCQ=pid=>cart.filter(i=>i.id===pid).reduce((s,i)=>s+i.qty,0);
 const cIT=()=>cart.reduce((s,i)=>s+i.price*i.qty,0);
+
+// ── Cost & margin helpers ──────────────────────────────
+function calcProductCost(p){
+  if(p.recipe&&p.recipe.length>0){
+    // sum ingredient costs: each ingredient costs costPerUnit per unit, and yields servingsPerUnit servings
+    return p.recipe.reduce((total,r)=>{
+      const ing=gI(r.ingredientId);
+      if(!ing||!ing.costPerUnit)return total;
+      return total+(ing.costPerUnit/(r.servingsPerUnit||1));
+    },0);
+  }
+  return p.costPer||0;
+}
+function marginPct(p){
+  const cost=calcProductCost(p);
+  if(!cost||!p.price)return null;
+  return Math.round((p.price-cost)/p.price*100);
+}
+function marginClass(pct){
+  if(pct===null)return 'none';
+  if(pct>=60)return 'good';
+  if(pct>=30)return 'ok';
+  return 'thin';
+}
+function marginLabel(p){
+  const cost=calcProductCost(p);
+  if(!cost)return null;
+  const pct=marginPct(p);
+  return`${fm(p.price-cost)} profit · ${pct}% margin`;
+}
 const tD=()=>discounts.reduce((s,d)=>s+d.savings,0);
 const cTot=()=>Math.max(0,cIT()-tD());
 const cCnt=()=>cart.reduce((s,i)=>s+i.qty,0);
@@ -1332,7 +1371,7 @@ function recipeFormHTML(existingRecipe){
 function showAPF(){
   document.getElementById('epf').style.display='none';
   document.getElementById('apf').style.display='block';
-  document.getElementById('apf').innerHTML=`<div class="fc"><div class="ftit">New Item</div><div class="fr2"><input class="fi" id="np-n" placeholder="Item name *"></div><div class="g2 fr2"><input class="fi" id="np-p" type="number" inputmode="decimal" placeholder="Price *"><input class="fi" id="np-s" type="number" inputmode="numeric" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="np-c"><option>Food</option><option>Snacks</option><option>Drinks</option><option>Treats</option></select><input class="fi" id="np-e" placeholder="Emoji 🍕"></div>${recipeFormHTML([])}<div class="fa"><button class="bsv" onclick="addProd()">Add Item</button><button class="bcn" onclick="document.getElementById('apf').style.display='none'">Cancel</button></div></div>`;
+  document.getElementById('apf').innerHTML=`<div class="fc"><div class="ftit">New Item</div><div class="fr2"><input class="fi" id="np-n" placeholder="Item name *"></div><div class="g2 fr2"><input class="fi" id="np-p" type="number" inputmode="decimal" placeholder="Price *"><input class="fi" id="np-s" type="number" inputmode="numeric" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="np-c"><option>Food</option><option>Snacks</option><option>Drinks</option><option>Treats</option></select><input class="fi" id="np-e" placeholder="Emoji 🍕"></div><div class="fr2"><span class="fl">Your cost per item (if no recipe)</span><input class="fi" id="np-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01"></div>${recipeFormHTML([])}<div class="fa"><button class="bsv" onclick="addProd()">Add Item</button><button class="bcn" onclick="document.getElementById('apf').style.display='none'">Cancel</button></div></div>`;
 }
 function addRecipeRow(){
   const cont=document.getElementById('recipe-rows'),idx=cont.querySelectorAll('.recipe-row').length;
@@ -1349,10 +1388,11 @@ function collectRecipe(){
 function addProd(){
   const n=document.getElementById('np-n').value.trim(),p=parseFloat(document.getElementById('np-p').value);
   const s=parseInt(document.getElementById('np-s').value)||0,cat=document.getElementById('np-c').value,e=document.getElementById('np-e').value||'🍽️';
+  const costPer=parseFloat(document.getElementById('np-cost')?.value)||0;
   if(!n||isNaN(p))return toast('Name & price required','#ef4444');
   const recipe=collectRecipe();
   if(!pillOrder.includes(cat))pillOrder.push(cat);
-  products.push({id:Date.now(),name:n,price:p,stock:s,category:cat,emoji:e,recipe});
+  products.push({id:Date.now(),name:n,price:p,stock:s,category:cat,emoji:e,recipe,costPer});
   save();document.getElementById('apf').style.display='none';renderProdList();renderCatBar();toast('✅ Item added!');
 }
 function variantFormHTML(variants){
@@ -1397,23 +1437,27 @@ function showEPF(id){
   _editingVariants=[...(p.variants||[])];
   document.getElementById('apf').style.display='none';
   document.getElementById('epf').style.display='block';
-  document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div><div class="fr2"><input class="fi" id="ep-n" value="${p.name}"></div><div class="g2 fr2"><input class="fi" id="ep-p" type="number" inputmode="decimal" value="${p.price}"><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select><input class="fi" id="ep-e" value="${p.emoji}"></div>${recipeFormHTML(p.recipe||[])}${variantFormHTML(p.variants||[])}<div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div></div>`;
+  document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div><div class="fr2"><input class="fi" id="ep-n" value="${p.name}"></div><div class="g2 fr2"><input class="fi" id="ep-p" type="number" inputmode="decimal" value="${p.price}"><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select><input class="fi" id="ep-e" value="${p.emoji}"></div><div class="fr2"><span class="fl">Your cost per item (if no recipe)</span><input class="fi" id="ep-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01" value="${p.costPer||''}"></div>${recipeFormHTML(p.recipe||[])}${variantFormHTML(p.variants||[])}<div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div></div>`;
   setTimeout(()=>{(p.recipe||[]).forEach((r,i)=>{const sel=document.querySelector(`.rr-ing[data-ri="${i}"]`);if(sel)sel.value=r.ingredientId;});},0);
 }
 function saveProd(id){
   const n=document.getElementById('ep-n').value.trim(),p2=parseFloat(document.getElementById('ep-p').value);
   const s=parseInt(document.getElementById('ep-s').value)||0,cat=document.getElementById('ep-c').value,e=document.getElementById('ep-e').value||'🍽️';
+  const costPer=parseFloat(document.getElementById('ep-cost')?.value)||0;
   if(!n||isNaN(p2))return toast('Name & price required','#ef4444');
   const recipe=collectRecipe();
   const variants=collectVariants();
-  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,recipe,variants}:x);
+  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,recipe,variants,costPer}:x);
   save();document.getElementById('epf').style.display='none';renderProdList();toast('✅ Updated!');
 }
 function delProd(id){products=products.filter(p=>p.id!==id);save();renderProdList();toast('Removed','#64748b');}
 function renderProdList(){
   document.getElementById('inv-list').innerHTML=products.map(p=>{
     const stk=effectiveStock(p),hasRecipe=p.recipe&&p.recipe.length>0,sc=stk===0?'empty':stk<10?'low':'ok';
-    return`<div class="ii"><div class="iie">${p.emoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}${hasRecipe?' · 🥫 recipe':''}</div></div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div></div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
+    const cost=calcProductCost(p);
+    const pct=marginPct(p);
+    const badge=cost?`<span class="cost-badge ${marginClass(pct)}">${pct}% margin</span>`:'';
+    return`<div class="ii"><div class="iie">${p.emoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}${hasRecipe?' · 🥫 recipe':''}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
   }).join('');
 }
 
@@ -1457,30 +1501,32 @@ function ingCatOpts(selected=''){return ingCats.map(c=>`<option value="${c}"${c=
 function showAIF(){
   document.getElementById('eif').style.display='none';
   document.getElementById('aif').style.display='block';
-  document.getElementById('aif').innerHTML=`<div class="fc ingr"><div class="ftit">🥫 New Ingredient</div><div class="g2 fr2"><input class="fi" id="ni-n" placeholder="Name *"><input class="fi" id="ni-e" placeholder="Emoji 🧀"></div><div class="g2 fr2"><div><span class="fl">Category</span><select class="fs" id="ni-cat">${ingCatOpts(ingCats[0])}</select></div><div><span class="fl">Unit (cans, bags…)</span><input class="fi" id="ni-u" placeholder="cans"></div></div><div class="g2 fr2"><div><span class="fl">Current stock</span><input class="fi" id="ni-s" type="number" inputmode="decimal" placeholder="3" step="0.1"></div><div><span class="fl">Low stock warning at</span><input class="fi" id="ni-l" type="number" inputmode="decimal" placeholder="1" step="0.1" value="1"></div></div><div class="fa"><button class="bsv" onclick="addIng()">Add</button><button class="bcn" onclick="document.getElementById('aif').style.display='none'">Cancel</button></div></div>`;
+  document.getElementById('aif').innerHTML=`<div class="fc ingr"><div class="ftit">🥫 New Ingredient</div><div class="g2 fr2"><input class="fi" id="ni-n" placeholder="Name *"><input class="fi" id="ni-e" placeholder="Emoji 🧀"></div><div class="g2 fr2"><div><span class="fl">Category</span><select class="fs" id="ni-cat">${ingCatOpts(ingCats[0])}</select></div><div><span class="fl">Unit (cans, bags…)</span><input class="fi" id="ni-u" placeholder="cans"></div></div><div class="g2 fr2"><div><span class="fl">Current stock</span><input class="fi" id="ni-s" type="number" inputmode="decimal" placeholder="3" step="0.1"></div><div><span class="fl">Low stock warning at</span><input class="fi" id="ni-l" type="number" inputmode="decimal" placeholder="1" step="0.1" value="1"></div></div><div class="fr2"><span class="fl">Cost per unit (what you pay) — optional</span><input class="fi" id="ni-cost" type="number" inputmode="decimal" placeholder="e.g. 1.50" step="0.01"></div><div class="fa"><button class="bsv" onclick="addIng()">Add</button><button class="bcn" onclick="document.getElementById('aif').style.display='none'">Cancel</button></div></div>`;
 }
 function addIng(){
   const n=document.getElementById('ni-n').value.trim(),e=document.getElementById('ni-e').value||'📦';
   const cat=document.getElementById('ni-cat').value||ingCats[0]||'General';
   const u=document.getElementById('ni-u').value.trim()||'units',s=parseFloat(document.getElementById('ni-s').value)||0;
   const l=parseFloat(document.getElementById('ni-l').value)||1;
+  const costPerUnit=parseFloat(document.getElementById('ni-cost').value)||0;
   if(!n)return toast('Name required','#ef4444');
-  ingredients.push({id:Date.now(),name:n,emoji:e,category:cat,unit:u,stock:s,lowThreshold:l});
+  ingredients.push({id:Date.now(),name:n,emoji:e,category:cat,unit:u,stock:s,lowThreshold:l,costPerUnit});
   save();document.getElementById('aif').style.display='none';renderIngList();toast('✅ Added!');
 }
 function showEIF(id){
   const ing=gI(id);if(!ing)return;
   document.getElementById('aif').style.display='none';
   document.getElementById('eif').style.display='block';
-  document.getElementById('eif').innerHTML=`<div class="fc ingr em" style="border-color:#6ee7b7"><div class="ftit">✏️ Edit: ${ing.name}</div><div class="g2 fr2"><input class="fi" id="ei-n" value="${ing.name}"><input class="fi" id="ei-e" value="${ing.emoji}"></div><div class="g2 fr2"><div><span class="fl">Category</span><select class="fs" id="ei-cat">${ingCatOpts(ing.category||ingCats[0])}</select></div><div><span class="fl">Unit name</span><input class="fi" id="ei-u" value="${ing.unit}"></div></div><div class="g2 fr2"><div><span class="fl">Current stock</span><input class="fi" id="ei-s" type="number" inputmode="decimal" value="${ing.stock}" step="0.1"></div><div><span class="fl">Low stock warning at</span><input class="fi" id="ei-l" type="number" inputmode="decimal" value="${ing.lowThreshold||1}" step="0.1"></div></div><div class="fa"><button class="bsb" onclick="saveIng(${id})">Save</button><button class="bcn" onclick="document.getElementById('eif').style.display='none'">Cancel</button></div></div>`;
+  document.getElementById('eif').innerHTML=`<div class="fc ingr em" style="border-color:#6ee7b7"><div class="ftit">✏️ Edit: ${ing.name}</div><div class="g2 fr2"><input class="fi" id="ei-n" value="${ing.name}"><input class="fi" id="ei-e" value="${ing.emoji}"></div><div class="g2 fr2"><div><span class="fl">Category</span><select class="fs" id="ei-cat">${ingCatOpts(ing.category||ingCats[0])}</select></div><div><span class="fl">Unit name</span><input class="fi" id="ei-u" value="${ing.unit}"></div></div><div class="g2 fr2"><div><span class="fl">Current stock</span><input class="fi" id="ei-s" type="number" inputmode="decimal" value="${ing.stock}" step="0.1"></div><div><span class="fl">Low stock warning at</span><input class="fi" id="ei-l" type="number" inputmode="decimal" value="${ing.lowThreshold||1}" step="0.1"></div></div><div class="fr2"><span class="fl">Cost per unit (what you pay)</span><input class="fi" id="ei-cost" type="number" inputmode="decimal" placeholder="e.g. 1.50" step="0.01" value="${ing.costPerUnit||''}"></div><div class="fa"><button class="bsb" onclick="saveIng(${id})">Save</button><button class="bcn" onclick="document.getElementById('eif').style.display='none'">Cancel</button></div></div>`;
 }
 function saveIng(id){
   const n=document.getElementById('ei-n').value.trim(),e=document.getElementById('ei-e').value||'📦';
   const cat=document.getElementById('ei-cat').value||ingCats[0]||'General';
   const u=document.getElementById('ei-u').value.trim()||'units',s=parseFloat(document.getElementById('ei-s').value)||0;
   const l=parseFloat(document.getElementById('ei-l').value)||1;
+  const costPerUnit=parseFloat(document.getElementById('ei-cost').value)||0;
   if(!n)return toast('Name required','#ef4444');
-  ingredients=ingredients.map(i=>i.id===id?{...i,name:n,emoji:e,category:cat,unit:u,stock:s,lowThreshold:l}:i);
+  ingredients=ingredients.map(i=>i.id===id?{...i,name:n,emoji:e,category:cat,unit:u,stock:s,lowThreshold:l,costPerUnit}:i);
   save();document.getElementById('eif').style.display='none';renderIngList();toast('✅ Updated!');
 }
 function delIng(id){
@@ -1511,7 +1557,7 @@ function renderIngList(){
       const usedBy=users.map(p=>{const r=p.recipe.find(x=>x.ingredientId===ing.id);return`${p.emoji} ${p.name} (${r.servingsPerUnit} srv/unit)`;}).join(', ');
       let servingsLeft=null;
       if(users.length>0){const r=users[0].recipe.find(x=>x.ingredientId===ing.id);if(r)servingsLeft=Math.floor(ing.stock*r.servingsPerUnit);}
-      return`<div class="ing-card"><div class="ing-top"><div class="ing-emoji">${ing.emoji}</div><div class="ing-info"><div class="ing-name">${ing.name}</div><div class="ing-unit">${ing.unit}</div>${servingsLeft!==null?`<div class="ing-yield">≈ ${servingsLeft} servings left</div>`:''}</div><div class="ing-stock-col"><div class="ing-stock-val ${sc}">${ing.stock%1===0?ing.stock:ing.stock.toFixed(2)}</div><div class="ing-stock-lbl">${ing.unit.toUpperCase()}</div></div><div class="ing-actions"><button class="be" onclick="showEIF(${ing.id})">Edit</button><button class="bd" onclick="delIng(${ing.id})">Del</button></div></div>${usedBy?`<div class="ing-uses">Used by: ${usedBy}</div>`:'<div class="ing-uses" style="color:var(--faint)">Not linked to any products yet</div>'}</div>`;
+      return`<div class="ing-card"><div class="ing-top"><div class="ing-emoji">${ing.emoji}</div><div class="ing-info"><div class="ing-name">${ing.name}</div><div class="ing-unit">${ing.unit}</div>${ing.costPerUnit?`<div class="ing-cost">${fm(ing.costPerUnit)} per ${ing.unit}</div>`:''}${servingsLeft!==null?`<div class="ing-yield">≈ ${servingsLeft} servings left</div>`:''}</div><div class="ing-stock-col"><div class="ing-stock-val ${sc}">${ing.stock%1===0?ing.stock:ing.stock.toFixed(2)}</div><div class="ing-stock-lbl">${ing.unit.toUpperCase()}</div></div><div class="ing-actions"><button class="be" onclick="showEIF(${ing.id})">Edit</button><button class="bd" onclick="delIng(${ing.id})">Del</button></div></div>${usedBy?`<div class="ing-uses">Used by: ${usedBy}</div>`:'<div class="ing-uses" style="color:var(--faint)">Not linked to any products yet</div>'}</div>`;
     }).join('');
   }).join('');
 }
@@ -1856,16 +1902,57 @@ function renderReports(){
   const cashRev=cashOrd.reduce((s,o)=>s+o.total,0);
   const cardRev=cardOrd.reduce((s,o)=>s+o.total,0);
 
-  // ── Summary stats ──
+  // estimated profit across all orders
+  const estProfit=ord.reduce((s,o)=>{
+    return s+o.items.reduce((is,i)=>{
+      const p=gP(i.id);
+      if(!p)return is;
+      const cost=calcProductCost(p);
+      return is+(i.price-cost)*i.qty;
+    },0);
+  },0);
+  const hasAnyCost=products.some(p=>calcProductCost(p)>0);
+
   const summary=`<div class="rpt-section">
     <div class="rpt-title">📈 Overview</div>
     <div class="rpt-grid">
       <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--green)">${fm(totalRev)}</div><div class="rpt-stat-lbl">Total Revenue</div></div>
       <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--blue)">${ord.length}</div><div class="rpt-stat-lbl">Orders</div></div>
       <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--purple)">${fm(avgOrder)}</div><div class="rpt-stat-lbl">Avg Order</div></div>
-      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--orange)">${fm(totalSaved)}</div><div class="rpt-stat-lbl">Combo Savings Given</div></div>
+      ${hasAnyCost?`<div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--teal)">${fm(estProfit)}</div><div class="rpt-stat-lbl">Est. Profit</div></div>`:`<div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--orange)">${fm(totalSaved)}</div><div class="rpt-stat-lbl">Combo Savings Given</div></div>`}
     </div>
   </div>`;
+
+  // ── Margins by product ──
+  const prodMargins=products.map(p=>{
+    const cost=calcProductCost(p);if(!cost)return null;
+    const pct=marginPct(p);
+    const soldQty=ord.reduce((s,o)=>s+o.items.filter(i=>i.id===p.id).reduce((is,i)=>is+i.qty,0),0);
+    return{name:p.name,emoji:p.emoji,price:p.price,cost,pct,profit:p.price-cost,soldQty,totalProfit:(p.price-cost)*soldQty};
+  }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
+
+  const marginsHTML=prodMargins.length?`<div class="rpt-section">
+    <div class="rpt-title">💰 Margins by Item</div>
+    ${prodMargins.map(m=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${m.emoji} ${m.name}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.min(100,m.pct||0)}%;background:${m.pct>=60?'var(--green)':m.pct>=30?'var(--yellow)':'var(--red)'}"></div></div>
+      <div class="rpt-bar-val" style="color:${m.pct>=60?'var(--green)':m.pct>=30?'#854d0e':'var(--red)'}">${m.pct}%</div>
+      <div class="rpt-bar-sub" style="width:60px;text-align:right">${fm(m.profit)}/ea</div>
+    </div>`).join('')}
+    <div style="font-size:11px;color:var(--faint);margin-top:8px;font-weight:600">🟢 60%+ · 🟡 30–60% · 🔴 under 30%</div>
+  </div>`:'';
+
+  const profitByItem=prodMargins.filter(m=>m.soldQty>0).sort((a,b)=>b.totalProfit-a.totalProfit);
+  const profitByItemHTML=profitByItem.length?`<div class="rpt-section">
+    <div class="rpt-title">🏦 Profit by Item <span style="font-size:11px;font-weight:600;color:var(--faint)">(this period)</span></div>
+    ${profitByItem.map((m,i)=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${m.emoji} ${m.name}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(m.totalProfit/profitByItem[0].totalProfit*100)}%;background:linear-gradient(90deg,var(--green),var(--teal))"></div></div>
+      <div class="rpt-bar-val" style="color:var(--green)">${fm(m.totalProfit)}</div>
+      <div class="rpt-bar-sub">${m.soldQty} sold</div>
+    </div>`).join('')}
+  </div>`:'';
+
 
   // ── Top items by qty ──
   const itemMap={};
@@ -1983,7 +2070,7 @@ function renderReports(){
     </div>`).join('')}
   </div>`;
 
-  el.innerHTML=rangeBar+summary+topItemsHTML+catHTML+payHTML+peakHTML+comboHTML+dodHTML;
+  el.innerHTML=rangeBar+summary+topItemsHTML+marginsHTML+profitByItemHTML+catHTML+payHTML+peakHTML+comboHTML+dodHTML;
 }
 
 async function initApp(){
