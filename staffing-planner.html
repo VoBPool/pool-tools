@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -722,15 +721,26 @@ function App() {
                                     React.createElement("button", { onClick: () => { setShowCsv(false); setCsvText(""); setCsvStatus(null); }, style: { cursor: "pointer", border: "1px solid #2A3A4A", borderRadius: "6px", padding: "7px 14px", background: "none", color: "#5A8AAA", fontFamily: "'DM Sans',sans-serif", fontSize: "12px" } }, "CANCEL"))),
                             (csvMode === "roster" || csvMode === "day") && React.createElement(React.Fragment, null,
                                 React.createElement("div", { style: { display: "flex", gap: "8px", marginBottom: "10px" } }, [{ id: "roster", label: "IMPORT ROSTER" }, { id: "day", label: "IMPORT A DAY" }].map(m => (React.createElement("button", { key: m.id, onClick: () => { setCsvMode(m.id); setCsvStatus(null); }, style: { cursor: "pointer", border: "2px solid " + (csvMode === m.id ? "#22C55E" : "#1B3A6B"), borderRadius: "6px", padding: "5px 12px", background: "none", color: csvMode === m.id ? "#22C55E" : "#3A6A8A", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700 } }, m.label)))),
-                                csvMode === "roster" && React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "8px" } }, "Paste your weekly shifts export \u2014 all Lifeguards and Head Lifeguards will be added to the roster. Concession and Front Desk are ignored automatically."),
-                                csvMode === "day" && React.createElement("div", { style: { marginBottom: "8px" } },
-                                    React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "4px" } }, "DATE (YYYY-MM-DD from column header)"),
-                                    React.createElement("input", { value: csvDate, onChange: e => setCsvDate(e.target.value), placeholder: "2026-05-13", style: { width: "160px", background: "#050E1B", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "6px 10px", color: "#C8E0F0", fontSize: "12px", fontFamily: "monospace", marginBottom: "6px" } }),
-                                    React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA" } }, "Paste the weekly or daily shifts export below.")),
-                                React.createElement("textarea", { value: csvText, onChange: e => setCsvText(e.target.value), rows: 6, placeholder: "Paste CSV content here...", style: { width: "100%", background: "#050E1B", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "8px 10px", color: "#C8E0F0", fontSize: "12px", fontFamily: "monospace", resize: "vertical", marginBottom: "8px" } }),
+                                csvMode === "roster" && React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "10px" } }, "Upload your weekly shifts export. Lifeguards and Head Lifeguards are added automatically. Concession and Front Desk are ignored."),
+                                csvMode === "day" && React.createElement("div", { style: { marginBottom: "10px" } },
+                                    React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "4px" } }, "DATE (YYYY-MM-DD)"),
+                                    React.createElement("input", { value: csvDate, onChange: e => setCsvDate(e.target.value), placeholder: "2026-05-13", style: { width: "160px", background: "#050E1B", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "6px 10px", color: "#C8E0F0", fontSize: "12px", fontFamily: "monospace" } })),
+                                React.createElement("label", { style: { display: "block", cursor: "pointer", border: "2px dashed #1B3A6B", borderRadius: "8px", padding: "20px", textAlign: "center", background: "#050E1B", marginBottom: "8px" }, onDragOver: e => { e.preventDefault(); e.currentTarget.style.borderColor = "#22C55E"; }, onDragLeave: e => { e.currentTarget.style.borderColor = "#1B3A6B"; }, onDrop: e => { e.preventDefault(); e.currentTarget.style.borderColor = "#1B3A6B"; const file = e.dataTransfer.files[0]; if (file) {
+                                        const r = new FileReader();
+                                        r.onload = ev => { setCsvText(ev.target.result); setCsvStatus({ ok: true, msg: "File loaded: " + file.name + " -- click Import to continue." }); };
+                                        r.readAsText(file);
+                                    } } },
+                                    React.createElement("input", { type: "file", accept: ".csv", style: { display: "none" }, onChange: e => { const file = e.target.files[0]; if (file) {
+                                            const r = new FileReader();
+                                            r.onload = ev => { setCsvText(ev.target.result); setCsvStatus({ ok: true, msg: "File loaded: " + file.name + " -- click Import to continue." }); };
+                                            r.readAsText(file);
+                                        } } }),
+                                    React.createElement("div", { style: { fontSize: "24px", marginBottom: "6px" } }, "\uD83D\uDCC2"),
+                                    React.createElement("div", { style: { fontSize: "12px", color: csvText ? "#22C55E" : "#5A8AAA", fontWeight: csvText ? 700 : 400 } }, csvText ? "CSV loaded — ready to import" : "Tap to choose file, or drag and drop"),
+                                    React.createElement("div", { style: { fontSize: "10px", color: "#3A4A5A", marginTop: "4px" } }, ".csv files only")),
                                 csvStatus && React.createElement("div", { style: { marginBottom: "8px", padding: "6px 10px", borderRadius: "6px", background: csvStatus.ok ? "#001A00" : "#1A0000", border: "1px solid " + (csvStatus.ok ? "#22C55E" : "#CC4444"), fontSize: "11px", color: csvStatus.ok ? "#22C55E" : "#FF6666" } }, csvStatus.msg),
                                 React.createElement("div", { style: { display: "flex", gap: "8px" } },
-                                    React.createElement("button", { onClick: importShiftsCsv, style: { cursor: "pointer", border: "none", borderRadius: "6px", padding: "7px 16px", background: "#22C55E", color: "#000", fontFamily: "'DM Sans',sans-serif", fontSize: "12px", fontWeight: 700 } }, "IMPORT"),
+                                    React.createElement("button", { onClick: importShiftsCsv, disabled: !csvText, style: { cursor: csvText ? "pointer" : "not-allowed", border: "none", borderRadius: "6px", padding: "7px 16px", background: csvText ? "#22C55E" : "#1A3A2A", color: csvText ? "#000" : "#3A6A4A", fontFamily: "'DM Sans',sans-serif", fontSize: "12px", fontWeight: 700 } }, "IMPORT"),
                                     React.createElement("button", { onClick: () => { setShowCsv(false); setCsvText(""); setCsvStatus(null); }, style: { cursor: "pointer", border: "1px solid #2A3A4A", borderRadius: "6px", padding: "7px 14px", background: "none", color: "#5A8AAA", fontFamily: "'DM Sans',sans-serif", fontSize: "12px" } }, "CANCEL")),
                                 React.createElement("div", { style: { marginTop: "8px", fontSize: "10px", color: "#3A4A5A" } }, "Duplicates are skipped. Existing guards are not modified.")))),
                         React.createElement("div", { style: { overflowX: "auto", borderRadius: "10px", border: "1px solid #12294A" } },
