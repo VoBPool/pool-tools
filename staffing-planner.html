@@ -224,9 +224,9 @@ function App() {
     const [editingId, setEditingId] = useState(null);
     const [showCsv, setShowCsv] = useState(false);
     const [csvText, setCsvText] = useState("");
-    const [csvMode, setCsvMode] = useState("roster"); // "roster" | "day"
-    const [csvDate, setCsvDate] = useState("");
-    const [csvStatus, setCsvStatus] = useState(null); // {ok, skipped, msg}
+    const [csvMode, setCsvMode] = useState("roster"); // "roster" | "shifts"
+    const [csvStatus, setCsvStatus] = useState(null);
+    const [weeklySchedule, setWeeklySchedule] = useState(null); // {uploadedAt, weekDates, days:{date:[{name,role,start,end}]}}
     const [showInactive, setShowInactive] = useState(false);
     // Change modal
     const [pending, setPending] = useState(null);
@@ -268,6 +268,12 @@ function App() {
                 }
             }
             catch (e) { }
+            try {
+                const r = await storage.get("planner-weekly");
+                if (r)
+                    setWeeklySchedule(JSON.parse(r.value));
+            }
+            catch (e) { }
             setLoaded(true);
         })();
     }, []);
@@ -279,6 +285,8 @@ function App() {
         storage.set("planner-logs", JSON.stringify(logs)).catch(() => { }); }, [logs, loaded]);
     useEffect(() => { if (loaded)
         storage.set("planner-meta", JSON.stringify({ ps: periodStart, rate, mgr })).catch(() => { }); }, [periodStart, rate, mgr, loaded]);
+    useEffect(() => { if (loaded && weeklySchedule)
+        storage.set("planner-weekly", JSON.stringify(weeklySchedule)).catch(() => { }); }, [weeklySchedule, loaded]);
     const days14 = gen14Days(periodStart);
     // ---- Day data helpers ----
     function gdd(ds) {
@@ -395,15 +403,10 @@ function App() {
         setForm({ name: g.name, role: g.role, notes: g.notes || "" });
     }
     // ---- Shifts App CSV Parser ----
-    function parseShiftsCsv(text, mode, date) {
+    function parseShiftsCsv(text) {
         const lines = text.split("\n");
         const headers = lines[0].split(",");
-        const nameCol = 0;
-        // Find date column index if day mode
-        let dateColIdx = -1;
-        if (mode === "day" && date) {
-            dateColIdx = headers.findIndex(h => h.trim() === date.trim());
-        }
+        const weekDates = headers.slice(1).map(h => h.trim()).filter(h => h.match(/\d{4}-\d{2}-\d{2}/));
         // Find "Scheduled shifts" row
         let schedStart = -1;
         for (let i = 0; i < lines.length; i++) {
@@ -415,9 +418,9 @@ function App() {
         }
         if (schedStart === -1)
             return { error: "Could not find Scheduled shifts section. Is this a shifts export?" };
-        const KEEP_ROLES = ["Lifeguard", "Head Lifeguard"];
+        if (weekDates.length === 0)
+            return { error: "No date columns found. Expected columns like 2026-05-13." };
         function parseTime(t) {
-            // "5:15 PM" -> minutes from midnight
             const m = t.trim().match(/(\d+):(\d+)\s*(AM|PM)/i);
             if (!m)
                 return null;
@@ -431,17 +434,15 @@ function App() {
         function parseCell(raw) {
             if (!raw || raw.trim() === "" || raw.trim() === "nan")
                 return [];
-            // CSV may have quoted fields with 
-            inside;
-            const text = raw.replace(/\\n/g, "\n").replace(/\xa0/g, "").replace(/^"|"$/g, "");
-            const chunks = text.split(/\n\s*\n/);
+            const txt = raw.replace(/\\n/g, "\n").replace(/\xa0/g, "").replace(/^"|"$/g, "");
+            const chunks = txt.split(/\n\s*\n/);
             const results = [];
             for (const chunk of chunks) {
                 const ls = chunk.split("\n").map(l => l.trim()).filter(Boolean);
                 if (!ls.length)
                     continue;
-                const timeMatch = ls[0].match(/(\d+:\d+\s*[AP]M)\s*-\s*(\d+:\d+\s*[AP]M)/i);
-                if (!timeMatch)
+                const tm = ls[0].match(/(\d+:\d+\s*[AP]M)\s*-\s*(\d+:\d+\s*[AP]M)/i);
+                if (!tm)
                     continue;
                 let role = "";
                 for (const l of ls.slice(1)) {
@@ -454,95 +455,78 @@ function App() {
                         break;
                     }
                 }
-                if (KEEP_ROLES.includes(role)) {
-                    results.push({ start: parseTime(timeMatch[1]), end: parseTime(timeMatch[2]), role });
+                if (role === "Lifeguard" || role === "Head Lifeguard") {
+                    results.push({ start: parseTime(tm[1]), end: parseTime(tm[2]), role });
                 }
             }
             return results;
         }
         function toFirstLast(name) {
-            // "Last, First" -> "First Last"
             const parts = name.split(",").map(s => s.trim());
             return parts.length === 2 ? parts[1] + " " + parts[0] : name;
         }
-        if (mode === "roster") {
-            // Collect all unique LG/HLG names + best role across all days
-            const seen = {};
-            // Re-parse CSV properly handling quoted fields
-            for (let i = schedStart; i < lines.length; i++) {
-                const nameRaw = lines[i].split(",")[0].replace(/"/g, "").trim();
-                if (!nameRaw || nameRaw === "nan")
-                    continue;
-                // Scan all date columns for this person's role
-                const row = lines[i];
-                const cols = row.split(",");
-                let bestRole = null;
-                for (let c = 1; c < cols.length; c++) {
-                    const shifts = parseCell(cols[c]);
-                    for (const s of shifts) {
-                        if (s.role === "Head Lifeguard") {
-                            bestRole = "hlg";
-                            break;
-                        }
-                        if (s.role === "Lifeguard" && bestRole === null)
-                            bestRole = "guard";
-                    }
-                    if (bestRole === "hlg")
-                        break;
-                }
-                if (bestRole)
-                    seen[nameRaw] = bestRole;
-            }
-            return { mode: "roster", guards: Object.entries(seen).map(([name, role]) => ({ name: toFirstLast(name), role })) };
-        }
-        else {
-            // Day mode - extract who works that day
-            if (dateColIdx === -1)
-                return { error: "Date " + date + " not found in CSV. Available: " + headers.filter(h => h.trim().match(/\d{4}-\d{2}-\d{2}/)).join(", ") };
-            const dayGuards = [];
-            for (let i = schedStart; i < lines.length; i++) {
-                const nameRaw = lines[i].split(",")[0].replace(/"/g, "").trim();
-                if (!nameRaw || nameRaw === "nan")
-                    continue;
-                const cols = lines[i].split(",");
-                const shifts = parseCell(cols[dateColIdx] || "");
+        // Build days map: date -> [{name, role, start, end}]
+        const days = {};
+        for (const d of weekDates)
+            days[d] = [];
+        const rosterSeen = {}; // name -> best role
+        for (let i = schedStart; i < lines.length; i++) {
+            const nameRaw = lines[i].split(",")[0].replace(/"/g, "").trim();
+            if (!nameRaw || nameRaw === "nan")
+                continue;
+            const cols = lines[i].split(",");
+            weekDates.forEach((date, ci) => {
+                const shifts = parseCell(cols[ci + 1] || "");
                 for (const s of shifts) {
-                    dayGuards.push({ name: toFirstLast(nameRaw), role: s.role === "Head Lifeguard" ? "hlg" : "guard", start: s.start, end: s.end });
+                    const name = toFirstLast(nameRaw);
+                    const role = s.role === "Head Lifeguard" ? "hlg" : "guard";
+                    days[date].push({ name, role, start: s.start, end: s.end });
+                    // Track best role for roster
+                    if (!rosterSeen[name] || (role === "hlg" && rosterSeen[name] !== "hlg"))
+                        rosterSeen[name] = role;
                 }
-            }
-            return { mode: "day", date, guards: dayGuards };
+            });
         }
+        return {
+            weekDates,
+            days,
+            roster: Object.entries(rosterSeen).map(([name, role]) => ({ name, role })),
+            uploadedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            weekLabel: weekDates.length ? weekDates[0] + " to " + weekDates[weekDates.length - 1] : "Unknown week"
+        };
     }
     function importShiftsCsv() {
         if (!csvText.trim())
             return;
-        const result = parseShiftsCsv(csvText, csvMode, csvDate);
+        const result = parseShiftsCsv(csvText);
         if (result.error) {
             setCsvStatus({ ok: false, msg: result.error });
             return;
         }
-        if (csvMode === "roster") {
-            let added = 0, skipped = 0;
+        if (csvMode === "shifts") {
+            // Store full weekly schedule
+            setWeeklySchedule(result);
+            // Also add any new guards to roster
+            let added = 0;
             setRoster(prev => {
                 const next = [...prev];
-                for (const g of result.guards) {
-                    if (next.find(e => e.active !== false && e.name.toLowerCase() === g.name.toLowerCase())) {
-                        skipped++;
+                for (const g of result.roster) {
+                    if (next.find(e => e.active !== false && e.name.toLowerCase() === g.name.toLowerCase()))
                         continue;
-                    }
                     next.push({ id: uid(), name: g.name, role: g.role, notes: "", active: true });
                     added++;
                 }
                 return next;
             });
-            setCsvStatus({ ok: true, msg: added + " guard" + (added !== 1 ? "s" : "") + " added" + (skipped ? ", " + skipped + " duplicates skipped" : "") + "." });
+            const days = Object.keys(result.days).filter(d => result.days[d].length > 0).length;
+            setCsvStatus({ ok: true, msg: "Week loaded: " + result.weekLabel + ". " + days + " days with guards. " + (added ? added + " new guards added to roster." : "") });
         }
         else {
-            // Day mode: add guards to roster if missing, return summary
+            // Roster-only mode: just add guards
             let added = 0, skipped = 0;
             setRoster(prev => {
                 const next = [...prev];
-                for (const g of result.guards) {
+                for (const g of result.roster) {
                     if (next.find(e => e.active !== false && e.name.toLowerCase() === g.name.toLowerCase())) {
                         skipped++;
                         continue;
@@ -552,7 +536,7 @@ function App() {
                 }
                 return next;
             });
-            setCsvStatus({ ok: true, msg: result.guards.length + " guard" + (result.guards.length !== 1 ? "s" : "") + " scheduled on " + result.date + (added ? " (" + added + " new to roster)" : "") + "." });
+            setCsvStatus({ ok: true, msg: added + " guard" + (added !== 1 ? "s" : "") + " added to roster" + (skipped ? ", " + skipped + " already existed" : "") + ". Week not stored — use Shifts App mode to store the full schedule." });
         }
     }
     // ---- CSV Import ----
@@ -705,6 +689,15 @@ function App() {
                                         guardChangeCounts[g.id],
                                         "x")))))) : null;
                         })()),
+                    weeklySchedule && (React.createElement("div", { style: { background: "#001A0A", border: "1px solid #22C55E44", borderRadius: "8px", padding: "10px 16px", marginBottom: "14px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" } },
+                        React.createElement("span", { style: { fontSize: "20px" } }, "\uD83D\uDCC5"),
+                        React.createElement("div", { style: { flex: 1 } },
+                            React.createElement("div", { style: { fontSize: "11px", color: "#22C55E", fontWeight: 700, letterSpacing: "1px" } }, "WEEKLY SCHEDULE LOADED"),
+                            React.createElement("div", { style: { fontSize: "11px", color: "#4A8A6A", marginTop: "2px" } },
+                                weeklySchedule.weekLabel,
+                                " \u00B7 Uploaded ",
+                                weeklySchedule.uploadedAt)),
+                        React.createElement("button", { onClick: () => { setWeeklySchedule(null); storage.remove("planner-weekly").catch(() => { }); }, style: { cursor: "pointer", border: "1px solid #CC444433", borderRadius: "6px", padding: "4px 10px", background: "none", color: "#884444", fontFamily: "'DM Sans',sans-serif", fontSize: "10px" } }, "CLEAR"))),
                     React.createElement("div", null,
                         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" } },
                             React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#3A6A8A" } },
@@ -712,19 +705,16 @@ function App() {
                                 " ACTIVE GUARDS"),
                             React.createElement("button", { onClick: () => setShowCsv(p => !p), style: { cursor: "pointer", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "6px 14px", background: "#0D1E35", color: "#00C2E0", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700, letterSpacing: "1px" } }, "IMPORT CSV")),
                         showCsv && (React.createElement("div", { style: { background: "#0A1828", border: "1px solid #1B3A6B", borderRadius: "8px", padding: "14px", marginBottom: "14px" } },
-                            React.createElement("div", { style: { display: "flex", gap: "6px", marginBottom: "12px" } }, [{ id: "shifts", label: "FROM SHIFTS APP" }, { id: "manual", label: "MANUAL" }].map(m => (React.createElement("button", { key: m.id, onClick: () => { setCsvMode(m.id === "shifts" ? "roster" : "manual"); setCsvStatus(null); }, style: { cursor: "pointer", border: "2px solid " + (((csvMode === "roster" || csvMode === "day") && m.id === "shifts") || (csvMode === "manual" && m.id === "manual") ? "#00C2E0" : "#1B3A6B"), borderRadius: "6px", padding: "5px 12px", background: "none", color: ((csvMode === "roster" || csvMode === "day") && m.id === "shifts") || (csvMode === "manual" && m.id === "manual") ? "#00C2E0" : "#3A6A8A", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700 } }, m.label)))),
-                            csvMode === "manual" && React.createElement(React.Fragment, null,
+                            React.createElement("div", { style: { display: "flex", gap: "6px", marginBottom: "12px" } }, [{ id: "shifts", label: "SHIFTS APP" }, { id: "roster", label: "ROSTER ONLY" }, { id: "manual", label: "MANUAL" }].map(m => (React.createElement("button", { key: m.id, onClick: () => { setCsvMode(m.id); setCsvStatus(null); }, style: { cursor: "pointer", border: "2px solid " + (csvMode === m.id ? "#00C2E0" : "#1B3A6B"), borderRadius: "6px", padding: "5px 12px", background: "none", color: csvMode === m.id ? "#00C2E0" : "#3A6A8A", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700 } }, m.label)))),
+                            csvMode === "roster" && React.createElement(React.Fragment, null,
+                                React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "10px" } }, "Upload to add all Lifeguards and Head Lifeguards to the roster. Week schedule is not stored."),
                                 React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", letterSpacing: "1px", marginBottom: "6px" } }, "One guard per line: Name or Name, hlg"),
                                 React.createElement("textarea", { value: csvText, onChange: e => setCsvText(e.target.value), rows: 5, placeholder: "Jordan Smith\nAlex Rivera\nMarcus Lee, hlg", style: { width: "100%", background: "#050E1B", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "8px 10px", color: "#C8E0F0", fontSize: "12px", fontFamily: "monospace", resize: "vertical", marginBottom: "8px" } }),
                                 React.createElement("div", { style: { display: "flex", gap: "8px" } },
                                     React.createElement("button", { onClick: importCsv, style: { cursor: "pointer", border: "none", borderRadius: "6px", padding: "7px 16px", background: "#00C2E0", color: "#000", fontFamily: "'DM Sans',sans-serif", fontSize: "12px", fontWeight: 700 } }, "IMPORT"),
                                     React.createElement("button", { onClick: () => { setShowCsv(false); setCsvText(""); setCsvStatus(null); }, style: { cursor: "pointer", border: "1px solid #2A3A4A", borderRadius: "6px", padding: "7px 14px", background: "none", color: "#5A8AAA", fontFamily: "'DM Sans',sans-serif", fontSize: "12px" } }, "CANCEL"))),
-                            (csvMode === "roster" || csvMode === "day") && React.createElement(React.Fragment, null,
-                                React.createElement("div", { style: { display: "flex", gap: "8px", marginBottom: "10px" } }, [{ id: "roster", label: "IMPORT ROSTER" }, { id: "day", label: "IMPORT A DAY" }].map(m => (React.createElement("button", { key: m.id, onClick: () => { setCsvMode(m.id); setCsvStatus(null); }, style: { cursor: "pointer", border: "2px solid " + (csvMode === m.id ? "#22C55E" : "#1B3A6B"), borderRadius: "6px", padding: "5px 12px", background: "none", color: csvMode === m.id ? "#22C55E" : "#3A6A8A", fontFamily: "'DM Sans',sans-serif", fontSize: "11px", fontWeight: 700 } }, m.label)))),
-                                csvMode === "roster" && React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "10px" } }, "Upload your weekly shifts export. Lifeguards and Head Lifeguards are added automatically. Concession and Front Desk are ignored."),
-                                csvMode === "day" && React.createElement("div", { style: { marginBottom: "10px" } },
-                                    React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "4px" } }, "DATE (YYYY-MM-DD)"),
-                                    React.createElement("input", { value: csvDate, onChange: e => setCsvDate(e.target.value), placeholder: "2026-05-13", style: { width: "160px", background: "#050E1B", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "6px 10px", color: "#C8E0F0", fontSize: "12px", fontFamily: "monospace" } })),
+                            csvMode === "shifts" && React.createElement(React.Fragment, null,
+                                React.createElement("div", { style: { fontSize: "10px", color: "#5A8AAA", marginBottom: "10px" } }, "Upload your weekly shifts export. The full week is stored \u2014 then open any day in the Schedule tab to see who's working. Any new guards are added to the roster automatically."),
                                 React.createElement("label", { style: { display: "block", cursor: "pointer", border: "2px dashed #1B3A6B", borderRadius: "8px", padding: "20px", textAlign: "center", background: "#050E1B", marginBottom: "8px" }, onDragOver: e => { e.preventDefault(); e.currentTarget.style.borderColor = "#22C55E"; }, onDragLeave: e => { e.currentTarget.style.borderColor = "#1B3A6B"; }, onDrop: e => { e.preventDefault(); e.currentTarget.style.borderColor = "#1B3A6B"; const file = e.dataTransfer.files[0]; if (file) {
                                         const r = new FileReader();
                                         r.onload = ev => { setCsvText(ev.target.result); setCsvStatus({ ok: true, msg: "File loaded: " + file.name + " -- click Import to continue." }); };
@@ -854,6 +844,22 @@ function App() {
                                 React.createElement("button", { onClick: () => pushToTracker(sd), style: Object.assign({}, BTN(pushStatus === "ok" ? "#003318" : pushStatus === "err" ? "#3A0808" : "#0D1E35", pushStatus === "ok" ? "#2ECC71" : pushStatus === "err" ? "#FF4444" : "#2ECC71", { border: "2px solid " + (pushStatus === "ok" ? "#2ECC71" : pushStatus === "err" ? "#FF4444" : "#2ECC7155"), padding: "5px 14px", fontSize: "11px", whiteSpace: "nowrap" })) }, pushStatus === "ok" ? "SENT TO TRACKER" : pushStatus === "err" ? "ERROR - RETRY" : "SEND TO TRACKER"),
                                 React.createElement("button", { onClick: () => setSelDay(null), style: Object.assign({}, BTN("none", "#5A8AAA", { border: "1px solid #2A3A4A", padding: "5px 12px", fontSize: "11px" })) }, "CLOSE"))),
                         sdd.dayType === "closed" && (React.createElement("div", { style: { textAlign: "center", padding: "40px", color: "#3A4A5A" } }, "Pool closed. No staffing needed.")),
+                        weeklySchedule && weeklySchedule.days[sd] && weeklySchedule.days[sd].length > 0 && (React.createElement("div", { style: { background: "#001A0A", border: "1px solid #22C55E33", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px" } },
+                            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" } },
+                                React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#22C55E" } }, "GUARDS SCHEDULED THIS DAY"),
+                                React.createElement("div", { style: { fontSize: "10px", color: "#3A6A4A" } },
+                                    weeklySchedule.days[sd].length,
+                                    " guard",
+                                    weeklySchedule.days[sd].length !== 1 ? "s" : "",
+                                    " from shifts app")),
+                            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px" } }, weeklySchedule.days[sd].map((g, i) => (React.createElement("div", { key: i, style: { background: "#0A2010", border: "1px solid #22C55E22", borderRadius: "6px", padding: "6px 10px", display: "flex", flexDirection: "column", gap: "2px" } },
+                                React.createElement("div", { style: { fontSize: "12px", color: "#C8E0F0", fontWeight: 600 } }, g.name),
+                                React.createElement("div", { style: { display: "flex", gap: "6px", alignItems: "center" } },
+                                    React.createElement("span", { style: { fontSize: "9px", background: g.role === "hlg" ? "#2E2700" : "#002A36", color: g.role === "hlg" ? "#F1C40F" : "#00C2E0", padding: "1px 5px", borderRadius: "3px", fontWeight: 700 } }, g.role === "hlg" ? "HLG" : "LG"),
+                                    React.createElement("span", { style: { fontSize: "10px", color: "#4A7A5A" } },
+                                        fmtTime(g.start),
+                                        " - ",
+                                        fmtTime(g.end))))))))),
                         sdd.dayType !== "closed" && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: "24px" } }, sdGroups.map(grp => {
                             const isBoom = grp === BOOM_GROUP;
                             const gcol = grp.color;
