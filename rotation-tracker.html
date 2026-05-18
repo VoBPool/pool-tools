@@ -325,7 +325,7 @@ function App() {
     const [minsView, setMinsView] = useState("fullday");
     const [slotModes, setSlotModes] = useState({});
     const [plannerInfo, setPlannerInfo] = useState(null); // {pushedAt, date, hasSplit}
-    // Load today's guard data from planner on mount
+    // Load guard data from planner on mount (uses today by default)
     useEffect(() => {
         (async () => {
             try {
@@ -409,8 +409,7 @@ function App() {
     }, [previewDate]);
     async function reloadFromPlanner() {
         try {
-            const today = new Date().toISOString().slice(0, 10);
-            const r = await storage.get("tracker-day-" + today);
+            const r = await storage.get("tracker-day-" + previewDate);
             if (r) {
                 const d = JSON.parse(r.value);
                 if (d.guards) {
@@ -444,7 +443,7 @@ function App() {
                 setPlannerInfo({ pushedAt: d.pushedAt, date: d.date, hasSplit: d.hasSplit });
             }
             else {
-                alert("No planner data found for today.");
+                alert("No planner data found for " + previewDate + ".");
             }
         }
         catch (e) {
