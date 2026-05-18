@@ -59,6 +59,7 @@
       remove: async (k) => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch(e){return null;} },
       list: async (pfx) => { try { const ks=Object.keys(localStorage).filter(k=>!pfx||k.startsWith(pfx)); return {keys:ks}; } catch(e){return {keys:[]};} },
     };
+"use strict";
 const TEAM_COLORS = { A: "#00C2E0", B: "#FF6B35", C: "#2ECC71", D: "#F1C40F" };
 const TEAM_DARK = { A: "#002A36", B: "#2E1200", C: "#003318", D: "#2E2700" };
 const BOOM_COLORS = { E: "#E879F9", F: "#F43F5E", G: "#FB923C" };
@@ -374,6 +375,37 @@ function App() {
             catch (e) { }
         })();
     }, []);
+    // Auto-load planner data when preview date changes
+    useEffect(() => {
+        (async () => {
+            const r = await storage.get("tracker-day-" + previewDate);
+            if (r) {
+                try {
+                    const d = JSON.parse(r.value);
+                    if (d.guards) {
+                        setGuards(prev => {
+                            const next = Object.assign({}, prev);
+                            Object.entries(d.guards).forEach(([team, segs]) => {
+                                if (next[team])
+                                    next[team] = next[team].map((g, i) => { const s = segs[i]; return s ? { name: (s[0] && s[0].name) || "", start: (s[0] && s[0].start) || g.start, end: (s[0] && s[0].end) || g.end } : g; });
+                            });
+                            return next;
+                        });
+                        setSplitSegs(() => { const ss = {}; Object.entries(d.guards).forEach(([team, segs]) => { segs.forEach((ps, i) => { if (ps && ps.length > 1)
+                            ss[team + "_" + i] = ps; }); }); return ss; });
+                    }
+                    if (d.boomGuards)
+                        setBoomGuards(prev => { const next = Object.assign({}, prev); Object.entries(d.boomGuards).forEach(([g, segs]) => { if (next[g] && segs[0])
+                            next[g] = Object.assign(Object.assign({}, next[g]), { name: segs[0].name || "", start: segs[0].start || next[g].start, end: segs[0].end || next[g].end }); }); return next; });
+                    setPlannerInfo({ date: d.date, pushedAt: d.pushedAt, hasSplit: d.hasSplit || false });
+                }
+                catch (e) { }
+            }
+            else {
+                setPlannerInfo(null);
+            }
+        })();
+    }, [previewDate]);
     async function reloadFromPlanner() {
         try {
             const today = new Date().toISOString().slice(0, 10);
@@ -419,10 +451,13 @@ function App() {
         }
     }
     useEffect(() => { const t = setInterval(() => setNow(new Date()), 10000); return () => clearInterval(t); }, []);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const [previewDate, setPreviewDate] = useState(todayStr);
     const ch = now.getHours(), cm = Math.floor(now.getMinutes() / 15) * 15;
     const nowMin = ch * 60 + cm;
-    const isOpen = ch >= 12 && (ch < 18 || (ch === 18 && cm <= 45));
-    const curSlot = SCHEDULE.find(s => s.h === ch && s.m === cm);
+    const isPreview = previewDate !== todayStr;
+    const isOpen = !isPreview && (ch >= 12 && (ch < 18 || (ch === 18 && cm <= 45)));
+    const curSlot = isPreview ? null : SCHEDULE.find(s => s.h === ch && s.m === cm);
     function setMode(key, targetMode) { setSlotModes(prev => { const cur = prev[key] || "normal"; return Object.assign(Object.assign({}, prev), { [key]: cur === targetMode ? "normal" : targetMode }); }); }
     function getMode(key) { return slotModes[key] || "normal"; }
     function boomOnAtMin(sm) {
@@ -453,12 +488,25 @@ function App() {
                 React.createElement("div", { style: { flex: 1 } },
                     React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "28px", letterSpacing: "4px", color: "#00D8FF", lineHeight: 1 } }, "LIFEGUARD ROTATION TRACKER"),
                     React.createElement("div", { style: { fontSize: "11px", letterSpacing: "3px", color: "#3A6A8A", marginTop: "3px" } }, "4 TEAMS | 4 CHAIRS + BOOM (1-5PM) | ROTATE EVERY 15 MIN | REST AT :45")),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" } },
+                    React.createElement("input", { type: "date", value: previewDate, onChange: e => setPreviewDate(e.target.value || todayStr), style: { background: "#0A1828", border: "1px solid " + (isPreview ? "#F97316" : "#1B3A6B"), borderRadius: "6px", padding: "5px 10px", color: isPreview ? "#F97316" : "#5A8AAA", fontSize: "12px", fontFamily: "'DM Sans',sans-serif", cursor: "pointer", letterSpacing: "1px" } }),
+                    isPreview
+                        ? React.createElement("button", { onClick: () => setPreviewDate(todayStr), style: { cursor: "pointer", border: "1px solid #F9731644", borderRadius: "5px", padding: "2px 10px", background: "#1A0A00", color: "#F97316", fontFamily: "'DM Sans',sans-serif", fontSize: "10px", fontWeight: 700, letterSpacing: "1px" } }, "\u2190 BACK TO TODAY")
+                        : React.createElement("div", { style: { fontSize: "10px", letterSpacing: "1px", color: "#3A6A8A" } }, "TODAY")),
                 React.createElement("div", { style: { textAlign: "right" } },
-                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "34px", color: "#00D8FF", lineHeight: 1 } }, fmt(ch, cm)),
-                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "2px", marginTop: "2px", color: !isOpen ? "#3A6A8A" : curSlot && curSlot.type === "rest" ? "#FF4444" : "#2ECC71" } }, !isOpen ? "POOL CLOSED" : curSlot && curSlot.type === "rest" ? "REST BREAK" : "POOL OPEN"),
-                    plannerInfo && React.createElement("div", { style: { fontSize: "10px", color: "#2ECC71", letterSpacing: "1px", marginTop: "3px", display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" } },
-                        React.createElement("span", { style: { background: "#003318", border: "1px solid #2ECC7155", borderRadius: "3px", padding: "1px 6px" } }, "PLANNER SYNCED")))),
-            isOpen && curSlot && curSlot.type === "active" && (() => {
+                    React.createElement("div", { style: { fontFamily: "'Bebas Neue'", fontSize: "34px", color: isPreview ? "#F97316" : "#00D8FF", lineHeight: 1 } }, isPreview ? previewDate : fmt(ch, cm)),
+                    React.createElement("div", { style: { fontSize: "11px", letterSpacing: "2px", marginTop: "2px", color: isPreview ? "#8B5A2A" : !isOpen ? "#3A6A8A" : curSlot && curSlot.type === "rest" ? "#FF4444" : "#2ECC71" } }, isPreview ? "PREVIEW MODE" : !isOpen ? "POOL CLOSED" : curSlot && curSlot.type === "rest" ? "REST BREAK" : "POOL OPEN"),
+                    plannerInfo && React.createElement("div", { style: { fontSize: "10px", color: isPreview ? "#F97316" : "#2ECC71", letterSpacing: "1px", marginTop: "3px", display: "flex", alignItems: "center", gap: "5px", justifyContent: "flex-end" } },
+                        React.createElement("span", { style: { background: isPreview ? "#1A0A00" : "#003318", border: "1px solid " + (isPreview ? "#F9731655" : "#2ECC7155"), borderRadius: "3px", padding: "1px 6px" } }, isPreview ? "PREVIEW: " + plannerInfo.date : "PLANNER SYNCED")))),
+            isPreview && React.createElement("div", { style: { background: "#1A0A00", border: "1px solid #F9731633", borderRadius: "10px", padding: "10px 20px", margin: "0 0 8px 0", display: "flex", alignItems: "center", gap: "10px" } },
+                React.createElement("span", { style: { fontSize: "20px" } }, "\uD83D\uDC41"),
+                React.createElement("div", null,
+                    React.createElement("div", { style: { fontSize: "11px", color: "#F97316", fontWeight: 700, letterSpacing: "2px" } }, "PREVIEW MODE"),
+                    React.createElement("div", { style: { fontSize: "11px", color: "#8B5A2A", marginTop: "2px" } },
+                        "Viewing ",
+                        previewDate,
+                        " \u2014 no live tracking. Load roster from Roster tab."))),
+            !isPreview && isOpen && curSlot && curSlot.type === "active" && (() => {
                 const { ch1ch4, slDv, bullpen, outTeam, outReason, h, m, chair5Conflict } = curSlot;
                 const sm2 = h * 60 + m, slotKey = h * 100 + m, mode = getMode(slotKey);
                 const boom = mode === "boom" ? BOOM_CYCLE[m] : null;
@@ -512,7 +560,7 @@ function App() {
                     mode === "chair5" && chair5Conflict && React.createElement("div", { style: { background: "#2A0800", border: "2px solid #FF4400", borderRadius: "8px", padding: "5px 14px" } },
                         React.createElement("span", { style: { fontSize: "11px", color: "#FF6633", fontWeight: 700 } }, "WARNING: MANAGER COVERAGE NEEDED AT NEXT ROTATION"))));
             })(),
-            isOpen && curSlot && curSlot.type === "rest" && (() => {
+            !isPreview && isOpen && curSlot && curSlot.type === "rest" && (() => {
                 const { rSlide, rConcession, closing, boomSupport } = curSlot;
                 const sm2 = curSlot.h * 60 + 45;
                 const boomActive = boomOnAtMin(sm2);
