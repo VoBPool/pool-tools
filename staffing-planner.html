@@ -666,6 +666,89 @@ function App() {
     const INP = { background: "#0D1E35", border: "1px solid #1B3A6B", borderRadius: "6px", padding: "7px 10px", color: "#C8E0F0", fontSize: "13px", fontFamily: "'DM Sans',sans-serif", width: "100%" };
     const SEL = Object.assign(Object.assign({}, INP), { cursor: "pointer" });
     function BTN(bg, col, extra) { return Object.assign({ cursor: "pointer", border: "none", borderRadius: "6px", padding: "8px 16px", background: bg, color: col, fontFamily: "'DM Sans',sans-serif", fontSize: "12px", fontWeight: 700, letterSpacing: "1px" }, (extra || {})); }
+    // ---- Load day from weekly schedule CSV ----
+    function loadDayFromSchedule(ds) {
+        if (!weeklySchedule || !weeklySchedule.days[ds])
+            return;
+        const dayGuards = weeklySchedule.days[ds]; // [{name, role, team, start, end}]
+        // Slot assignment algorithm per team
+        // Sort by start time, assign to slots:
+        //   - Empty slot -> fill it
+        //   - Guard starts after slot's last guard ended -> split shift (same slot)
+        //   - Otherwise -> next slot
+        function assignToSlots(guards) {
+            const sorted = [...guards].sort((a, b) => a.start - b.start);
+            const slots = [[], []];
+            for (const g of sorted) {
+                let placed = false;
+                for (let s = 0; s < 2; s++) {
+                    const slot = slots[s];
+                    if (slot.length === 0) {
+                        slot.push(g);
+                        placed = true;
+                        break;
+                    }
+                    else if (slot.length === 1 && slot[slot.length - 1].end <= g.start) {
+                        slot.push(g);
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed)
+                    slots[1].push(g); // overflow fallback
+            }
+            return slots;
+        }
+        // Ensure all guards exist in roster, get/create their IDs
+        let updatedRoster = [...roster];
+        function getOrCreateId(name, role) {
+            const existing = updatedRoster.find(r => r.active !== false && r.name.toLowerCase() === name.toLowerCase());
+            if (existing)
+                return existing.id;
+            const newG = { id: uid(), name, role, notes: "", active: true };
+            updatedRoster.push(newG);
+            return newG.id;
+        }
+        // Build new slots for this day
+        const newSlots = {};
+        for (const team of ["A", "B", "C", "D"]) {
+            const teamGuards = dayGuards.filter(g => g.team === team);
+            const [slot1guards, slot2guards] = assignToSlots(teamGuards);
+            // Slot 1
+            if (slot1guards.length > 0) {
+                newSlots[team + "1"] = slot1guards.map(g => ({
+                    guardId: getOrCreateId(g.name, g.role),
+                    start: g.start,
+                    end: g.end,
+                    confirmed: false
+                }));
+            }
+            // Slot 2
+            if (slot2guards.length > 0) {
+                newSlots[team + "2"] = slot2guards.map(g => ({
+                    guardId: getOrCreateId(g.name, g.role),
+                    start: g.start,
+                    end: g.end,
+                    confirmed: false
+                }));
+            }
+        }
+        // Handle HLG slots if present
+        const hlgGuards = dayGuards.filter(g => g.role === "hlg" && !g.team);
+        if (hlgGuards.length > 0) {
+            const [hlg1, hlg2] = assignToSlots(hlgGuards);
+            if (hlg1.length > 0)
+                newSlots["HLG1"] = hlg1.map(g => ({ guardId: getOrCreateId(g.name, g.role), start: g.start, end: g.end, confirmed: false }));
+            if (hlg2.length > 0)
+                newSlots["HLG2"] = hlg2.map(g => ({ guardId: getOrCreateId(g.name, g.role), start: g.start, end: g.end, confirmed: false }));
+        }
+        // Update roster if new guards were added
+        if (updatedRoster.length !== roster.length)
+            setRoster(updatedRoster);
+        // Replace this day's slots entirely
+        const d = gdd(ds);
+        setDayData(p => (Object.assign(Object.assign({}, p), { [ds]: Object.assign(Object.assign({}, d), { slots: newSlots }) })));
+    }
     // ---- Push to Tracker ----
     const [pushStatus, setPushStatus] = useState(null); // null | 'ok' | 'err'
     async function pushToTracker(ds) {
@@ -912,13 +995,14 @@ function App() {
                                     React.createElement("select", { value: sdd.boomStart, onChange: e => setDayField(sd, "boomStart", Number(e.target.value)), style: Object.assign(Object.assign({}, SEL), { width: "auto", background: "transparent", border: "none", color: "#E879F9", fontSize: "12px", padding: "2px" }) }, TIME_OPTS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label))),
                                     React.createElement("span", { style: { color: "#4A1A6A", fontSize: "12px" } }, "to"),
                                     React.createElement("select", { value: sdd.boomEnd, onChange: e => setDayField(sd, "boomEnd", Number(e.target.value)), style: Object.assign(Object.assign({}, SEL), { width: "auto", background: "transparent", border: "none", color: "#E879F9", fontSize: "12px", padding: "2px" }) }, TIME_OPTS.map(o => React.createElement("option", { key: o.val, value: o.val }, o.label)))))),
-                            React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", marginLeft: "auto" } },
+                            React.createElement("div", { style: { display: "flex", gap: "8px", alignItems: "center", marginLeft: "auto", flexWrap: "wrap" } },
+                                weeklySchedule && weeklySchedule.days[sd] && weeklySchedule.days[sd].length > 0 && (React.createElement("button", { onClick: () => loadDayFromSchedule(sd), style: Object.assign({}, BTN("#0A1828", "#22C55E", { border: "2px solid #22C55E", padding: "5px 14px", fontSize: "11px", whiteSpace: "nowrap" })) }, "LOAD FROM SCHEDULE")),
                                 React.createElement("button", { onClick: () => pushToTracker(sd), style: Object.assign({}, BTN(pushStatus === "ok" ? "#003318" : pushStatus === "err" ? "#3A0808" : "#0D1E35", pushStatus === "ok" ? "#2ECC71" : pushStatus === "err" ? "#FF4444" : "#2ECC71", { border: "2px solid " + (pushStatus === "ok" ? "#2ECC71" : pushStatus === "err" ? "#FF4444" : "#2ECC7155"), padding: "5px 14px", fontSize: "11px", whiteSpace: "nowrap" })) }, pushStatus === "ok" ? "SENT TO TRACKER" : pushStatus === "err" ? "ERROR - RETRY" : "SEND TO TRACKER"),
                                 React.createElement("button", { onClick: () => setSelDay(null), style: Object.assign({}, BTN("none", "#5A8AAA", { border: "1px solid #2A3A4A", padding: "5px 12px", fontSize: "11px" })) }, "CLOSE"))),
                         sdd.dayType === "closed" && (React.createElement("div", { style: { textAlign: "center", padding: "40px", color: "#3A4A5A" } }, "Pool closed. No staffing needed.")),
                         weeklySchedule && weeklySchedule.days[sd] && weeklySchedule.days[sd].length > 0 && (React.createElement("div", { style: { background: "#001A0A", border: "1px solid #22C55E33", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px" } },
                             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" } },
-                                React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#22C55E" } }, "GUARDS SCHEDULED THIS DAY"),
+                                React.createElement("div", { style: { fontSize: "10px", letterSpacing: "2px", color: "#22C55E" } }, "GUARDS SCHEDULED THIS DAY \u2014 click LOAD FROM SCHEDULE above to fill slots"),
                                 React.createElement("div", { style: { fontSize: "10px", color: "#3A6A4A" } },
                                     weeklySchedule.days[sd].length,
                                     " guard",
