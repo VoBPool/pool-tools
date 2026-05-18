@@ -404,7 +404,6 @@ function App() {
     }
     // ---- Shifts App CSV Parser ----
     function parseShiftsCsv(text) {
-        // Parse CSV properly handling quoted fields with embedded newlines
         function parseCsvRows(raw) {
             const rows = [];
             let row = [], field = "", inQ = false;
@@ -470,34 +469,47 @@ function App() {
                 h = 0;
             return h * 60 + mn;
         }
-        function parseCell(raw) {
+        function parseCell(raw, fallbackRole) {
             if (!raw || !raw.trim())
                 return [];
-            const txt = raw.replace(/\u00a0/g, "").replace(/\u2022/g, "\u2022").trim();
+            const txt = raw.replace(/\xa0/g, "").trim();
             const chunks = txt.split(/\n\s*\n/);
             const results = [];
             for (const chunk of chunks) {
                 const ls = chunk.split("\n").map(l => l.trim()).filter(Boolean);
                 if (!ls.length)
                     continue;
-                const tm = ls[0].match(/(\d+:\d+\s*[AP]M)\s*[-]\s*(\d+:\d+\s*[AP]M)/i);
+                const tm = ls[0].match(/(\d+:\d+\s*[AP]M)\s*-\s*(\d+:\d+\s*[AP]M)/i);
                 if (!tm)
                     continue;
-                let role = "";
+                let roleRaw = fallbackRole || "";
+                let team = null;
                 for (const l of ls.slice(1)) {
-                    if (l.includes("\u2022") || l.includes("•")) {
-                        role = l.split(/[•\u2022]/)[0].trim();
+                    if (l.includes("•")) {
+                        roleRaw = l.split("•")[0].trim();
                         break;
                     }
                     if (l === "Unavailable") {
-                        role = "Unavailable";
+                        roleRaw = "Unavailable";
                         break;
                     }
                 }
-                if (role === "Lifeguard" || role === "Head Lifeguard") {
+                // Normalize role: "LG A/B/C/D" = guard, "Head Lifeguard"/"Leadership" = hlg
+                let role = null;
+                if (roleRaw === "Head Lifeguard" || roleRaw === "Leadership") {
+                    role = "hlg";
+                }
+                else if (roleRaw === "Lifeguard" || /^LG\s+/i.test(roleRaw)) {
+                    role = "guard";
+                    // Extract team from "LG A" -> "A"
+                    const tm2 = roleRaw.match(/LG\s+([A-Z])/i);
+                    if (tm2)
+                        team = tm2[1].toUpperCase();
+                }
+                if (role) {
                     const start = parseTime(tm[1]), end = parseTime(tm[2]);
                     if (start !== null && end !== null)
-                        results.push({ start, end, role });
+                        results.push({ start, end, role, team });
                 }
             }
             return results;
@@ -506,7 +518,12 @@ function App() {
             const parts = name.split(",").map(s => s.trim());
             return parts.length === 2 ? parts[1] + " " + parts[0] : name.trim();
         }
-        const SKIP = new Set(["Unassigned shifts", "Available shifts", "Scheduled shifts", "Head Lifeguard", "Lifeguard", "Concession", "Front Desk", "Manager", ""]);
+        // Section headers across all known export formats
+        const SECTION_HEADERS = {
+            "Head Lifeguard": "hlg", "Leadership": "hlg",
+            "Lifeguard": "guard", "No groups": "guard", "Scheduled shifts": "guard"
+        };
+        const SKIP = new Set(["Unassigned shifts", "Available shifts", "Concession", "Front Desk", "Manager", ""]);
         const days = {};
         for (const d of weekDates)
             days[d] = [];
@@ -517,12 +534,8 @@ function App() {
             const nameRaw = (row[0] || "").trim();
             if (!nameRaw)
                 continue;
-            if (nameRaw === "Head Lifeguard") {
-                sectionRole = "hlg";
-                continue;
-            }
-            if (nameRaw === "Lifeguard") {
-                sectionRole = "guard";
+            if (SECTION_HEADERS[nameRaw] !== undefined) {
+                sectionRole = SECTION_HEADERS[nameRaw];
                 continue;
             }
             if (SKIP.has(nameRaw)) {
@@ -531,14 +544,13 @@ function App() {
             }
             let hasAnyShift = false;
             for (const [date, colIdx] of Object.entries(dateIdxMap)) {
-                const shifts = parseCell(row[colIdx] || "");
+                const shifts = parseCell(row[colIdx] || "", sectionRole === "hlg" ? "Head Lifeguard" : null);
                 for (const s of shifts) {
                     hasAnyShift = true;
                     const name = toFirstLast(nameRaw);
-                    const role = s.role === "Head Lifeguard" ? "hlg" : s.role === "Lifeguard" ? "guard" : (sectionRole || "guard");
-                    days[date].push({ name, role, start: s.start, end: s.end });
-                    if (!rosterSeen[name] || (role === "hlg" && rosterSeen[name] !== "hlg"))
-                        rosterSeen[name] = role;
+                    days[date].push({ name, role: s.role, team: s.team || null, start: s.start, end: s.end });
+                    if (!rosterSeen[name] || (s.role === "hlg" && rosterSeen[name] !== "hlg"))
+                        rosterSeen[name] = s.role;
                 }
             }
             if (!hasAnyShift && sectionRole && nameRaw.includes(",")) {
