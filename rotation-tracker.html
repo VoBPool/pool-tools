@@ -316,6 +316,7 @@ function SlotModeBtn({ slotKey, mode, onChange }) {
 }
 function App() {
     const [tab, setTab] = useState("schedule");
+    const [previewDate, setPreviewDate] = useState(() => new Date().toISOString().slice(0, 10));
     const [guards, setGuards] = useState(DEFAULT_GUARDS);
     const [boomGuards, setBoomGuards] = useState(DEFAULT_BOOM);
     const [splitSegs, setSplitSegs] = useState({}); // {"A_0":[{name,start,end},...]} for split shifts
@@ -452,7 +453,6 @@ function App() {
     }
     useEffect(() => { const t = setInterval(() => setNow(new Date()), 10000); return () => clearInterval(t); }, []);
     const todayStr = new Date().toISOString().slice(0, 10);
-    const [previewDate, setPreviewDate] = useState(todayStr);
     const ch = now.getHours(), cm = Math.floor(now.getMinutes() / 15) * 15;
     const nowMin = ch * 60 + cm;
     const isPreview = previewDate !== todayStr;
