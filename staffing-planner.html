@@ -688,7 +688,7 @@ function App() {
                         placed = true;
                         break;
                     }
-                    else if (slot.length === 1 && slot[slot.length - 1].end <= g.start) {
+                    else if (slot.length === 1 && r15(slot[slot.length - 1].end) <= r15(g.start)) {
                         slot.push(g);
                         placed = true;
                         break;
@@ -709,6 +709,8 @@ function App() {
             updatedRoster.push(newG);
             return newG.id;
         }
+        // Round to nearest 15-min boundary to match TIME_OPTS
+        function r15(min) { return Math.round(min / 15) * 15; }
         // Build new slots for this day
         const newSlots = {};
         for (const team of ["A", "B", "C", "D"]) {
@@ -718,8 +720,8 @@ function App() {
             if (slot1guards.length > 0) {
                 newSlots[team + "1"] = slot1guards.map(g => ({
                     guardId: getOrCreateId(g.name, g.role),
-                    start: g.start,
-                    end: g.end,
+                    start: r15(g.start),
+                    end: r15(g.end),
                     confirmed: false
                 }));
             }
@@ -727,8 +729,8 @@ function App() {
             if (slot2guards.length > 0) {
                 newSlots[team + "2"] = slot2guards.map(g => ({
                     guardId: getOrCreateId(g.name, g.role),
-                    start: g.start,
-                    end: g.end,
+                    start: r15(g.start),
+                    end: r15(g.end),
                     confirmed: false
                 }));
             }
@@ -738,9 +740,9 @@ function App() {
         if (hlgGuards.length > 0) {
             const [hlg1, hlg2] = assignToSlots(hlgGuards);
             if (hlg1.length > 0)
-                newSlots["HLG1"] = hlg1.map(g => ({ guardId: getOrCreateId(g.name, g.role), start: g.start, end: g.end, confirmed: false }));
+                newSlots["HLG1"] = hlg1.map(g => ({ guardId: getOrCreateId(g.name, g.role), start: r15(g.start), end: r15(g.end), confirmed: false }));
             if (hlg2.length > 0)
-                newSlots["HLG2"] = hlg2.map(g => ({ guardId: getOrCreateId(g.name, g.role), start: g.start, end: g.end, confirmed: false }));
+                newSlots["HLG2"] = hlg2.map(g => ({ guardId: getOrCreateId(g.name, g.role), start: r15(g.start), end: r15(g.end), confirmed: false }));
         }
         // Update roster if new guards were added
         if (updatedRoster.length !== roster.length)
