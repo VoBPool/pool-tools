@@ -404,22 +404,61 @@ function App() {
     }
     // ---- Shifts App CSV Parser ----
     function parseShiftsCsv(text) {
-        const lines = text.split("\n");
-        const headers = lines[0].split(",");
-        const weekDates = headers.slice(1).map(h => h.trim()).filter(h => h.match(/\d{4}-\d{2}-\d{2}/));
-        // Find "Scheduled shifts" row
-        let schedStart = -1;
-        for (let i = 0; i < lines.length; i++) {
-            const first = lines[i].split(",")[0].replace(/"/g, "").trim();
-            if (first === "Scheduled shifts") {
-                schedStart = i + 1;
-                break;
+        // Parse CSV properly handling quoted fields with embedded newlines
+        function parseCsvRows(raw) {
+            const rows = [];
+            let row = [], field = "", inQ = false;
+            for (let i = 0; i < raw.length; i++) {
+                const c = raw[i];
+                if (inQ) {
+                    if (c === "\"" && raw[i + 1] === "\"") {
+                        field += "\"";
+                        i++;
+                    }
+                    else if (c === "\"") {
+                        inQ = false;
+                    }
+                    else {
+                        field += c;
+                    }
+                }
+                else {
+                    if (c === "\"") {
+                        inQ = true;
+                    }
+                    else if (c === ",") {
+                        row.push(field);
+                        field = "";
+                    }
+                    else if (c === "\n" || (c === "\r" && raw[i + 1] === "\n")) {
+                        if (c === "\r")
+                            i++;
+                        row.push(field);
+                        rows.push(row);
+                        row = [];
+                        field = "";
+                    }
+                    else {
+                        field += c;
+                    }
+                }
             }
+            if (field || row.length) {
+                row.push(field);
+                rows.push(row);
+            }
+            return rows;
         }
-        if (schedStart === -1)
-            return { error: "Could not find Scheduled shifts section. Is this a shifts export?" };
+        const rows = parseCsvRows(text);
+        if (!rows.length)
+            return { error: "Empty file." };
+        const headers = rows[0];
+        const weekDates = headers.slice(1).map(h => h.trim()).filter(h => h.match(/\d{4}-\d{2}-\d{2}/));
         if (weekDates.length === 0)
             return { error: "No date columns found. Expected columns like 2026-05-13." };
+        const dateIdxMap = {};
+        headers.forEach((h, i) => { if (h.trim().match(/\d{4}-\d{2}-\d{2}/))
+            dateIdxMap[h.trim()] = i; });
         function parseTime(t) {
             const m = t.trim().match(/(\d+):(\d+)\s*(AM|PM)/i);
             if (!m)
@@ -432,22 +471,22 @@ function App() {
             return h * 60 + mn;
         }
         function parseCell(raw) {
-            if (!raw || raw.trim() === "" || raw.trim() === "nan")
+            if (!raw || !raw.trim())
                 return [];
-            const txt = raw.replace(/\\n/g, "\n").replace(/\xa0/g, "").replace(/^"|"$/g, "");
+            const txt = raw.replace(/\u00a0/g, "").replace(/\u2022/g, "\u2022").trim();
             const chunks = txt.split(/\n\s*\n/);
             const results = [];
             for (const chunk of chunks) {
                 const ls = chunk.split("\n").map(l => l.trim()).filter(Boolean);
                 if (!ls.length)
                     continue;
-                const tm = ls[0].match(/(\d+:\d+\s*[AP]M)\s*-\s*(\d+:\d+\s*[AP]M)/i);
+                const tm = ls[0].match(/(\d+:\d+\s*[AP]M)\s*[-]\s*(\d+:\d+\s*[AP]M)/i);
                 if (!tm)
                     continue;
                 let role = "";
                 for (const l of ls.slice(1)) {
-                    if (l.includes("•")) {
-                        role = l.split("•")[0].trim();
+                    if (l.includes("\u2022") || l.includes("•")) {
+                        role = l.split(/[•\u2022]/)[0].trim();
                         break;
                     }
                     if (l === "Unavailable") {
@@ -456,36 +495,57 @@ function App() {
                     }
                 }
                 if (role === "Lifeguard" || role === "Head Lifeguard") {
-                    results.push({ start: parseTime(tm[1]), end: parseTime(tm[2]), role });
+                    const start = parseTime(tm[1]), end = parseTime(tm[2]);
+                    if (start !== null && end !== null)
+                        results.push({ start, end, role });
                 }
             }
             return results;
         }
         function toFirstLast(name) {
             const parts = name.split(",").map(s => s.trim());
-            return parts.length === 2 ? parts[1] + " " + parts[0] : name;
+            return parts.length === 2 ? parts[1] + " " + parts[0] : name.trim();
         }
-        // Build days map: date -> [{name, role, start, end}]
+        const SKIP = new Set(["Unassigned shifts", "Available shifts", "Scheduled shifts", "Head Lifeguard", "Lifeguard", "Concession", "Front Desk", "Manager", ""]);
         const days = {};
         for (const d of weekDates)
             days[d] = [];
-        const rosterSeen = {}; // name -> best role
-        for (let i = schedStart; i < lines.length; i++) {
-            const nameRaw = lines[i].split(",")[0].replace(/"/g, "").trim();
-            if (!nameRaw || nameRaw === "nan")
+        const rosterSeen = {};
+        let sectionRole = null;
+        for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            const nameRaw = (row[0] || "").trim();
+            if (!nameRaw)
                 continue;
-            const cols = lines[i].split(",");
-            weekDates.forEach((date, ci) => {
-                const shifts = parseCell(cols[ci + 1] || "");
+            if (nameRaw === "Head Lifeguard") {
+                sectionRole = "hlg";
+                continue;
+            }
+            if (nameRaw === "Lifeguard") {
+                sectionRole = "guard";
+                continue;
+            }
+            if (SKIP.has(nameRaw)) {
+                sectionRole = null;
+                continue;
+            }
+            let hasAnyShift = false;
+            for (const [date, colIdx] of Object.entries(dateIdxMap)) {
+                const shifts = parseCell(row[colIdx] || "");
                 for (const s of shifts) {
+                    hasAnyShift = true;
                     const name = toFirstLast(nameRaw);
-                    const role = s.role === "Head Lifeguard" ? "hlg" : "guard";
+                    const role = s.role === "Head Lifeguard" ? "hlg" : s.role === "Lifeguard" ? "guard" : (sectionRole || "guard");
                     days[date].push({ name, role, start: s.start, end: s.end });
-                    // Track best role for roster
                     if (!rosterSeen[name] || (role === "hlg" && rosterSeen[name] !== "hlg"))
                         rosterSeen[name] = role;
                 }
-            });
+            }
+            if (!hasAnyShift && sectionRole && nameRaw.includes(",")) {
+                const name = toFirstLast(nameRaw);
+                if (!rosterSeen[name])
+                    rosterSeen[name] = sectionRole;
+            }
         }
         return {
             weekDates,
