@@ -483,7 +483,7 @@ try {
     <div id="desk-tabs" style="display:none">
       <button onclick="swTab('pos')" id="dt-pos" style="background:rgba(255,255,255,.25);border:none;color:#fff;padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">🛒 Order</button>
       <button onclick="swTab('history')" id="dt-history" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📋 History</button>
-      <button onclick="swTab('reports')" id="dt-reports" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📊 Reports</button>
+      <button onclick="swTab('stocklog')" id="dt-stocklog" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📋 Stock Log</button>
       <button onclick="swTab('inventory')" id="dt-inventory" style="background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.7);padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">📦 Inventory</button>
     </div>
   </div>
@@ -520,7 +520,7 @@ try {
     <div class="sa">
       <div class="itabs">
         <button class="itb active" onclick="swIT('products')">📦 Products</button>
-        <button class="itb" onclick="swIT('stocklog')">📋 Stock Log</button>
+        <button class="itb" onclick="swIT('reports')">📊 Reports</button>
         <button class="itb" onclick="swIT('combos')">🎁 Combos</button>
       </div>
       <div id="inv-p">
@@ -532,9 +532,8 @@ try {
         <div id="epf" style="display:none"></div>
         <div id="inv-list"></div>
       </div>
-      <div id="inv-sl" style="display:none">
-        <button class="secbtn" style="margin-bottom:14px" onclick="openStockLog()">📋 Log Tonight's Stock</button>
-        <div id="sl-history"></div>
+      <div id="inv-r" style="display:none">
+        <div id="rpt-container"></div>
       </div>
       <div id="inv-c" style="display:none">
         <button class="secbtn org" onclick="showACF()">🎁 Create New Combo</button>
@@ -550,16 +549,17 @@ try {
     <span class="cbtot" id="cbtot">$0.00</span>
   </button></div>
 
-  <div id="screen-reports" class="scr">
+  <div id="screen-stocklog" class="scr">
     <div class="sa">
-      <div id="rpt-container"></div>
+      <button class="secbtn" style="margin-bottom:14px" onclick="openStockLog()">📋 Log Tonight's Stock</button>
+      <div id="sl-history"></div>
     </div>
   </div>
 
   <div id="tab-bar">
     <button class="tb active" onclick="swTab('pos')"><span class="ti">🛒</span><span class="tl">Order</span><div class="td" id="dot-pos"></div></button>
     <button class="tb" onclick="swTab('history')"><span class="ti">📋</span><span class="tl">History</span><div class="td" style="display:none" id="dot-history"></div></button>
-    <button class="tb" onclick="swTab('reports')"><span class="ti">📊</span><span class="tl">Reports</span><div class="td" style="display:none" id="dot-reports"></div></button>
+    <button class="tb" onclick="swTab('stocklog')"><span class="ti">📋</span><span class="tl">Stock Log</span><div class="td" style="display:none" id="dot-stocklog"></div></button>
     <button class="tb" onclick="swTab('inventory')"><span class="ti">📦</span><span class="tl">Inventory</span><div class="td" style="display:none" id="dot-inventory"></div></button>
   </div>
 
@@ -839,27 +839,27 @@ function swTab(tab){
   document.querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.td').forEach(d=>d.style.display='none');
   document.getElementById('screen-'+tab).classList.add('active');
-  const tabIdx={pos:0,history:1,reports:2,inventory:3};
+  const tabIdx={pos:0,history:1,stocklog:2,inventory:3};
   const tbs=document.querySelectorAll('.tb');
   if(tbs[tabIdx[tab]])tbs[tabIdx[tab]].classList.add('active');
   const dot=document.getElementById('dot-'+tab);
   if(dot)dot.style.display='block';
-  ['pos','history','reports','inventory'].forEach(t=>{
+  ['pos','history','stocklog','inventory'].forEach(t=>{
     const b=document.getElementById('dt-'+t);
     if(b){b.style.background=t===tab?'rgba(255,255,255,.25)':'rgba(255,255,255,.1)';b.style.color=t===tab?'#fff':'rgba(255,255,255,.7)';}
   });
   closeCart();
   if(tab==='history')renderHistory();
+  if(tab==='stocklog')renderStockLog();
   if(tab==='inventory'){if(!invUnlocked){openInvLock('inventory');return;}renderInv();}
-  if(tab==='reports'){if(!invUnlocked){openInvLock('reports');return;}renderReports();}
 }
 function swIT(tab){
   curInvTab=tab;
-  document.querySelectorAll('.itb').forEach((b,i)=>b.classList.toggle('active',['products','stocklog','combos'][i]===tab));
+  document.querySelectorAll('.itb').forEach((b,i)=>b.classList.toggle('active',['products','reports','combos'][i]===tab));
   document.getElementById('inv-p').style.display=tab==='products'?'block':'none';
-  document.getElementById('inv-sl').style.display=tab==='stocklog'?'block':'none';
+  document.getElementById('inv-r').style.display=tab==='reports'?'block':'none';
   document.getElementById('inv-c').style.display=tab==='combos'?'block':'none';
-  if(tab==='stocklog')renderStockLog();
+  if(tab==='reports')renderReports();
   if(tab==='combos')renderComboList();
 }
 
@@ -1349,7 +1349,7 @@ function exportCSV(){
   toast('📥 CSV exported!');
 }
 
-function renderInv(){renderProdList();if(curInvTab==='combos')renderComboList();if(curInvTab==='stocklog')renderStockLog();}
+function renderInv(){renderProdList();if(curInvTab==='combos')renderComboList();if(curInvTab==='reports')renderReports();}
 
 function showAPF(){
   document.getElementById('epf').style.display='none';
