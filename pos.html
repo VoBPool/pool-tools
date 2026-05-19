@@ -1096,6 +1096,7 @@ function renderProducts(){
   list=applyProductOrder(list);
   grid.innerHTML='';
   list.forEach(p=>{
+    const stk=effectiveStock(p);
     const hasVariants=p.variants&&p.variants.length>0;
     const inC=gCQ(p.id),oos=stk<=0,low=!oos&&stk<10;
     const el=document.createElement('div');
