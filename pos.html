@@ -1422,9 +1422,52 @@ function collectVariants(){
   });
   return out;
 }
+function stockItemsFormHTML(items){
+  const rows=(items||[]).map((s,i)=>`<div class="variant-row" id="sirow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Chip Bags" value="${s.name}" id="si-n-${i}">
+    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Unit" value="${s.unit||''}" id="si-u-${i}" title="Unit (bags, cans…)">
+    <input class="fi" style="flex:0 0 55px;font-size:13px;padding:8px" type="number" placeholder="Pkg" value="${s.perPackage||''}" id="si-pp-${i}" title="Units per package (optional)">
+    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Pkg unit" value="${s.packageUnit||''}" id="si-pu-${i}" title="Package unit name (e.g. Box)">
+    <button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito';font-size:12px;touch-action:manipulation" onclick="removeSIRow(${i})">✕</button>
+  </div>`).join('');
+  return`<div class="recipe-section" id="si-section">
+    <div class="recipe-title">📦 Stock Log Items <span style="font-size:11px;color:var(--blue);font-weight:600">(optional)</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">Define what employees count for this product. E.g. Nachos → "Chip Bags" + "Cheese Cans". "Pkg" = units per package (e.g. 2 bags/box).</div>
+    <div style="display:flex;gap:4px;font-size:10px;font-weight:700;color:var(--faint);margin-bottom:4px;padding:0 2px">
+      <span style="flex:1">What to count</span><span style="flex:0 0 60px">Unit</span><span style="flex:0 0 55px">Per pkg</span><span style="flex:0 0 60px">Pkg name</span><span style="flex:0 0 32px"></span>
+    </div>
+    <div id="si-rows">${rows}</div>
+    <button class="add-ing-btn" onclick="addSIRow()">+ Add Item</button>
+  </div>`;
+}
+let _editingSI=[];
+function addSIRow(){
+  _editingSI.push({id:Date.now(),name:'',unit:'',perPackage:0,packageUnit:''});
+  const i=_editingSI.length-1;
+  document.getElementById('si-rows').insertAdjacentHTML('beforeend',`<div class="variant-row" id="sirow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Chip Bags" id="si-n-${i}">
+    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Unit" id="si-u-${i}">
+    <input class="fi" style="flex:0 0 55px;font-size:13px;padding:8px" type="number" placeholder="Pkg" id="si-pp-${i}">
+    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Pkg unit" id="si-pu-${i}">
+    <button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito';font-size:12px" onclick="removeSIRow(${i})">✕</button>
+  </div>`);
+}
+function removeSIRow(i){const r=document.getElementById('sirow-'+i);if(r)r.remove();}
+function collectSI(){
+  const rows=document.querySelectorAll('[id^="sirow-"]');
+  const out=[];
+  rows.forEach((row,i)=>{
+    const idx=row.id.replace('sirow-','');
+    const name=document.getElementById('si-n-'+idx)?.value.trim();
+    if(!name)return;
+    out.push({id:_editingSI[i]?.id||Date.now()+i,name,unit:document.getElementById('si-u-'+idx)?.value.trim()||'units',perPackage:parseInt(document.getElementById('si-pp-'+idx)?.value)||0,packageUnit:document.getElementById('si-pu-'+idx)?.value.trim()||''});
+  });
+  return out;
+}
 function showEPF(id){
   const p=products.find(x=>x.id===id);if(!p)return;
   _editingVariants=[...(p.variants||[])];
+  _editingSI=[...(p.stockItems||[])];
   document.getElementById('apf').style.display='none';
   document.getElementById('epf').style.display='block';
   document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div>
@@ -1442,6 +1485,7 @@ function showEPF(id){
       <div><span class="fl">Units per package</span><input class="fi" id="ep-upp" type="number" inputmode="numeric" value="${p.unitsPerPackage||''}" placeholder="e.g. 8"></div>
     </div>
     <div class="fr2"><span class="fl">Your cost per item (for margin tracking)</span><input class="fi" id="ep-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01" value="${p.costPer||''}"></div>
+    ${stockItemsFormHTML(p.stockItems||[])}
     ${variantFormHTML(p.variants||[])}
     <div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div>
   </div>`;
@@ -1454,7 +1498,8 @@ function saveProd(id){
   const unitsPerPackage=parseInt(document.getElementById('ep-upp')?.value)||0;
   if(!n||isNaN(p2))return toast('Name & price required','#ef4444');
   const variants=collectVariants();
-  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,variants,costPer,employeePrice,unitsPerPackage}:x);
+  const stockItems=collectSI();
+  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,variants,costPer,employeePrice,unitsPerPackage,stockItems}:x);
   save();document.getElementById('epf').style.display='none';renderProdList();toast('✅ Updated!');
 }
 function delProd(id){products=products.filter(p=>p.id!==id);save();renderProdList();toast('Removed','#64748b');}
@@ -1513,6 +1558,117 @@ function renderComboList(){
     else if(c.type==='bxgy'){tl='Buy X Get Y';const bp=gP(c.buyProductId),gp2=gP(c.getProductId);desc=`Buy ${c.buyQty}× ${bp?bp.name:'?'} → Get ${c.getQty}× ${gp2?gp2.name:'?'} ${c.discountPct===100?'FREE':c.discountPct+'% off'}`;}
     return`<div class="cic2"><div class="cit"><div class="cie2">${c.emoji}</div><div class="cii2"><div class="cin2">${c.name}</div><div class="cty">${tl}</div></div></div><div class="cds">${desc}</div><div class="cia"><button class="beo" onclick="showECF(${c.id})">✏️ Edit</button><button class="bd" onclick="delCombo(${c.id})">Delete</button></div></div>`;
   }).join('');
+}
+function delCombo(id){combos=combos.filter(c=>c.id!==id);save();renderComboList();toast('Removed','#64748b');}
+
+function prodOpts(selId){return products.map(p=>`<option value="${p.id}"${p.id===selId?' selected':''}>${p.emoji} ${p.name} (${fm(p.price)})</option>`).join('');}
+
+function showACF(){
+  document.getElementById('ecf').style.display='none';
+  document.getElementById('acf').style.display='block';
+  newCT='discount';
+  renderComboForm('acf',null);
+}
+function showECF(id){
+  const c=combos.find(x=>x.id===id);if(!c)return;
+  document.getElementById('acf').style.display='none';
+  document.getElementById('ecf').style.display='block';
+  newCT=c.type;
+  renderComboForm('ecf',c);
+}
+function renderComboForm(elId,c){
+  const el=document.getElementById(elId);
+  const isEdit=!!c;
+  const type=c?c.type:newCT;
+  el.innerHTML=`<div class="fc">
+    <div class="ftit">${isEdit?'✏️ Edit Combo':'🎁 New Combo'}</div>
+    <div class="g2 fr2">
+      <input class="fi" id="cf-name" placeholder="Combo name *" value="${c?c.name:''}">
+      <input class="fi" id="cf-emoji" placeholder="Emoji 🎁" value="${c?c.emoji:'🎁'}">
+    </div>
+    <div class="fr2" style="margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <button class="fb${type==='discount'?' active':''}" onclick="setCT('discount')">Bundle Discount</button>
+        <button class="fb${type==='bxgy'?' active':''}" onclick="setCT('bxgy')">Buy X Get Y</button>
+      </div>
+    </div>
+    <div id="cf-body"></div>
+    <div class="fa">
+      <button class="bsv" onclick="saveCombo(${isEdit?c.id:'null'})">${isEdit?'Save':'Add Combo'}</button>
+      <button class="bcn" onclick="document.getElementById('${elId}').style.display='none'">Cancel</button>
+    </div>
+  </div>`;
+  renderCFBody(type,c);
+}
+function setCT(t){
+  newCT=t;
+  document.querySelectorAll('#cf-body').forEach(()=>{});
+  const c=null;
+  renderCFBody(t,null);
+  document.querySelectorAll('.fb').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase().includes(t==='discount'?'bundle':'buy')));
+}
+function renderCFBody(type,c){
+  const el=document.getElementById('cf-body');if(!el)return;
+  if(type==='discount'){
+    const items=c?c.items:[{productId:'',qty:1}];
+    el.innerHTML=`
+      <div id="combo-items">${items.map((it,i)=>`<div class="g2 fr2" id="citem-${i}"><select class="fs" id="ci-p-${i}">${prodOpts(it.productId)}</select><div style="display:flex;gap:6px;align-items:center"><input class="fi" id="ci-q-${i}" type="number" min="1" value="${it.qty}" style="width:60px;padding:8px"><button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito'" onclick="removeCItem(${i})">✕</button></div></div>`).join('')}</div>
+      <button class="add-ing-btn" onclick="addCItem()">+ Add Item</button>
+      <div class="fr2" style="margin-top:10px"><span class="fl">Combo price *</span><input class="fi" id="cf-price" type="number" inputmode="decimal" step="0.01" placeholder="e.g. 4.50" value="${c?c.comboPrice:''}"></div>`;
+  } else {
+    el.innerHTML=`
+      <div class="g2 fr2">
+        <div><span class="fl">Buy this product</span><select class="fs" id="cf-buy-p">${prodOpts(c?c.buyProductId:'')}</select></div>
+        <div><span class="fl">Quantity</span><input class="fi" id="cf-buy-q" type="number" min="1" value="${c?c.buyQty:2}"></div>
+      </div>
+      <div class="g2 fr2">
+        <div><span class="fl">Get this product</span><select class="fs" id="cf-get-p">${prodOpts(c?c.getProductId:'')}</select></div>
+        <div><span class="fl">Quantity</span><input class="fi" id="cf-get-q" type="number" min="1" value="${c?c.getQty:1}"></div>
+      </div>
+      <div class="fr2"><span class="fl">Discount %</span><input class="fi" id="cf-disc" type="number" min="1" max="100" value="${c?c.discountPct:100}" placeholder="100 = free"></div>`;
+  }
+}
+function addCItem(){
+  const cont=document.getElementById('combo-items');if(!cont)return;
+  const i=cont.querySelectorAll('[id^="citem-"]').length;
+  const div=document.createElement('div');div.className='g2 fr2';div.id='citem-'+i;
+  div.innerHTML=`<select class="fs" id="ci-p-${i}">${prodOpts('')}</select><div style="display:flex;gap:6px;align-items:center"><input class="fi" id="ci-q-${i}" type="number" min="1" value="1" style="width:60px;padding:8px"><button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito'" onclick="removeCItem(${i})">✕</button></div>`;
+  cont.appendChild(div);
+}
+function removeCItem(i){const el=document.getElementById('citem-'+i);if(el)el.remove();}
+function saveCombo(editId){
+  const name=document.getElementById('cf-name')?.value.trim();
+  const emoji=document.getElementById('cf-emoji')?.value||'🎁';
+  if(!name)return toast('Name required','#ef4444');
+  let combo;
+  if(newCT==='discount'){
+    const rows=document.querySelectorAll('[id^="citem-"]');
+    const items=[];
+    rows.forEach((_,i)=>{
+      const pid=parseInt(document.getElementById('ci-p-'+i)?.value);
+      const qty=parseInt(document.getElementById('ci-q-'+i)?.value)||1;
+      if(pid)items.push({productId:pid,qty});
+    });
+    const price=parseFloat(document.getElementById('cf-price')?.value);
+    if(!items.length||isNaN(price))return toast('Add items and a price','#ef4444');
+    combo={type:'discount',name,emoji,items,comboPrice:price};
+  } else {
+    const buyProductId=parseInt(document.getElementById('cf-buy-p')?.value);
+    const buyQty=parseInt(document.getElementById('cf-buy-q')?.value)||1;
+    const getProductId=parseInt(document.getElementById('cf-get-p')?.value);
+    const getQty=parseInt(document.getElementById('cf-get-q')?.value)||1;
+    const discountPct=parseInt(document.getElementById('cf-disc')?.value)||100;
+    if(!buyProductId||!getProductId)return toast('Select products','#ef4444');
+    combo={type:'bxgy',name,emoji,buyProductId,buyQty,getProductId,getQty,discountPct};
+  }
+  if(editId&&editId!=='null'){
+    combos=combos.map(c=>c.id===editId?{...combo,id:editId}:c);
+    document.getElementById('ecf').style.display='none';
+  } else {
+    combos.push({...combo,id:Date.now()});
+    document.getElementById('acf').style.display='none';
+  }
+  save();renderComboList();toast('✅ '+(editId&&editId!=='null'?'Updated!':'Combo added!'));
 }
 
 function applyLayout(){
@@ -1745,6 +1901,24 @@ function openStockLog(){
   const form=document.getElementById('sl-form');
   form.innerHTML=products.map(p=>{
     const hasUPP=p.unitsPerPackage>0;
+    const hasSI=p.stockItems&&p.stockItems.length>0;
+    if(hasSI){
+      // Product with custom stock items (e.g. Nachos → Chip Bags + Cheese Cans)
+      return`<div class="sl-row" id="slr-${p.id}">
+        <div class="sl-prod-name">${p.emoji} ${p.name}</div>
+        ${p.stockItems.map(si=>{
+          const hasPerPkg=si.perPackage>0;
+          return`<div style="margin-bottom:8px">
+            <div class="sl-label">${si.name} (${si.unit})</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              ${hasPerPkg?`<div><div style="font-size:10px;color:var(--faint);font-weight:700;margin-bottom:2px">Full ${si.packageUnit||'packages'} (×${si.perPackage})</div><input class="fi" id="sl-pkg-${p.id}-${si.id}" type="number" inputmode="numeric" min="0" placeholder="0" style="padding:8px 10px;font-size:14px;width:90px" oninput="updateSlCalcSI(${p.id})"></div>`:''}
+              <div><div style="font-size:10px;color:var(--faint);font-weight:700;margin-bottom:2px">Open ${si.unit}</div><input class="fi" id="sl-open-${p.id}-${si.id}" type="number" inputmode="numeric" min="0" placeholder="0" style="padding:8px 10px;font-size:14px;width:80px" oninput="updateSlCalcSI(${p.id})"></div>
+              <div id="sl-si-total-${p.id}-${si.id}" style="font-size:12px;color:var(--blue);font-weight:700;align-self:flex-end;padding-bottom:8px"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
     return`<div class="sl-row" id="slr-${p.id}">
       <div class="sl-prod-name">${p.emoji} ${p.name} ${hasUPP?`<span style="font-size:11px;color:var(--faint);font-weight:600">(${p.unitsPerPackage}/pkg)</span>`:''}</div>
       <div class="sl-inputs">
@@ -1772,6 +1946,19 @@ function openStockLog(){
 function closeStockLog(){
   document.getElementById('sl-overlay').classList.remove('open');
   document.getElementById('sl-modal').classList.remove('open');
+}
+function updateSlCalcSI(productId){
+  const p=gP(productId);if(!p||!p.stockItems)return;
+  p.stockItems.forEach(si=>{
+    const pkgEl=document.getElementById(`sl-pkg-${productId}-${si.id}`);
+    const openEl=document.getElementById(`sl-open-${productId}-${si.id}`);
+    const totalEl=document.getElementById(`sl-si-total-${productId}-${si.id}`);
+    if(!openEl||!totalEl)return;
+    const pkgs=parseInt(pkgEl?.value)||0;
+    const open=parseInt(openEl.value)||0;
+    const total=pkgs*(si.perPackage||1)+open;
+    totalEl.textContent=`= ${total} ${si.unit}`;
+  });
 }
 function updateSlCalc(productId){
   const p=gP(productId);if(!p)return;
@@ -1809,6 +1996,17 @@ function submitStockLog(){
   const items=[];
   const flagged=[];
   products.forEach(p=>{
+    const hasSI=p.stockItems&&p.stockItems.length>0;
+    if(hasSI){
+      const siCounts=p.stockItems.map(si=>{
+        const pkgs=parseInt(document.getElementById(`sl-pkg-${p.id}-${si.id}`)?.value)||0;
+        const open=parseInt(document.getElementById(`sl-open-${p.id}-${si.id}`)?.value)||0;
+        const total=pkgs*(si.perPackage||1)+open;
+        return{...si,packages:pkgs,openUnits:open,total};
+      });
+      items.push({productId:p.id,name:p.name,emoji:p.emoji,stockItems:siCounts,flagged:false});
+      return;
+    }
     const sealedEl=document.getElementById('sl-sealed-'+p.id);
     const openedEl=document.getElementById('sl-opened-'+p.id);
     if(!sealedEl)return;
@@ -1852,10 +2050,15 @@ function renderStockLog(){
         <div class="sl-hist-date">${dateStr}</div>
         ${flaggedItems.length?`<div class="sl-hist-flag">⚠️ ${flaggedItems.length} flag${flaggedItems.length>1?'s':''}</div>`:'<div style="font-size:11px;font-weight:700;color:var(--green)">✓ Clean</div>'}
       </div>
-      ${log.items.map(i=>`<div class="sl-hist-row${i.flagged?' sl-hist-flagged':''}">
+      ${log.items.map(i=>{
+        if(i.stockItems){
+          return`<div class="sl-hist-row"><span>${i.emoji} ${i.name}</span><span>${i.stockItems.map(s=>`${s.name}: ${s.total} ${s.unit}`).join(' · ')}</span></div>`;
+        }
+        return`<div class="sl-hist-row${i.flagged?' sl-hist-flagged':''}">
         <span>${i.emoji} ${i.name}</span>
         <span>${i.totalUnits} units${i.expectedUnits!==null?` (expected ${i.expectedUnits}${i.flagged?` ⚠️ ${i.diff>0?'+':''}${i.diff}`:''})`:''}}</span>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
     </div>`;
   }).join('');
 }
