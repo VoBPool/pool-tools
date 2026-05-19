@@ -850,8 +850,8 @@ function swTab(tab){
   });
   closeCart();
   if(tab==='history')renderHistory();
-  if(tab==='inventory'){if(!invUnlocked){openInvLock();return;}renderInv();}
-  if(tab==='reports')renderReports();
+  if(tab==='inventory')renderInv();
+  if(tab==='reports'){if(!invUnlocked){openInvLock();return;}renderReports();}
 }
 function swIT(tab){
   curInvTab=tab;
@@ -1685,7 +1685,7 @@ function confirmInvLock(){
   }
   invUnlocked=true;
   closeInvLock();
-  swTab('inventory');
+  swTab(document.getElementById('screen-reports').classList.contains('active')?'reports':'reports');
 }
 
 // ── Employee order ─────────────────────────────────────
