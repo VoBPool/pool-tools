@@ -309,6 +309,27 @@ body{display:flex;flex-direction:column}
 .ro-arr{background:var(--light);border:none;border-radius:6px;width:28px;height:24px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
 .ro-arr:active{background:var(--blue);color:#fff;}
 
+/* ── Stock log ────────────────────────────────────────── */
+.sl-row{background:var(--white);border-radius:14px;padding:12px;margin-bottom:8px;border:1.5px solid var(--border);}
+.sl-row.flagged{border-color:var(--red);background:#fff5f5;}
+.sl-prod-name{font-weight:800;font-size:14px;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.sl-inputs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
+.sl-label{font-size:11px;font-weight:700;color:var(--faint);margin-bottom:3px;}
+.sl-calc{font-size:12px;color:var(--blue);font-weight:700;margin-top:4px;}
+.sl-disc{font-size:12px;font-weight:800;margin-top:4px;}
+.sl-disc.ok{color:var(--green);}
+.sl-disc.warn{color:var(--red);}
+.sl-history-item{background:var(--white);border-radius:14px;padding:14px;margin-bottom:10px;border:1.5px solid var(--border);}
+.sl-hist-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.sl-hist-date{font-weight:800;font-size:14px;color:var(--text);}
+.sl-hist-flag{font-size:11px;font-weight:800;background:#fee2e2;color:var(--red);padding:3px 8px;border-radius:8px;}
+.sl-hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--light);font-size:13px;}
+.sl-hist-row:last-child{border-bottom:none;}
+.sl-hist-flagged{color:var(--red);font-weight:800;}
+
+/* ── Employee order ───────────────────────────────────── */
+.emp-tag{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px;margin-left:6px;}
+
 /* ── Cost & margin ────────────────────────────────────── */
 .cost-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;padding:3px 8px;border-radius:8px;margin-top:3px;}
 .cost-badge.good{background:#dcfce7;color:#166534;}
@@ -498,7 +519,7 @@ try {
     <div class="sa">
       <div class="itabs">
         <button class="itb active" onclick="swIT('products')">📦 Products</button>
-        <button class="itb" onclick="swIT('ingredients')">🥫 Ingredients</button>
+        <button class="itb" onclick="swIT('stocklog')">📋 Stock Log</button>
         <button class="itb" onclick="swIT('combos')">🎁 Combos</button>
       </div>
       <div id="inv-p">
@@ -510,13 +531,9 @@ try {
         <div id="epf" style="display:none"></div>
         <div id="inv-list"></div>
       </div>
-      <div id="inv-i" style="display:none">
-        <div id="restock-warnings"></div>
-        <div id="ing-cat-bar"></div>
-        <button class="secbtn grn" onclick="showAIF()">＋ Add Ingredient</button>
-        <div id="aif" style="display:none"></div>
-        <div id="eif" style="display:none"></div>
-        <div id="ing-list"></div>
+      <div id="inv-sl" style="display:none">
+        <button class="secbtn" style="margin-bottom:14px" onclick="openStockLog()">📋 Log Tonight's Stock</button>
+        <div id="sl-history"></div>
       </div>
       <div id="inv-c" style="display:none">
         <button class="secbtn org" onclick="showACF()">🎁 Create New Combo</button>
@@ -562,7 +579,10 @@ try {
   <div id="cft">
     <input id="on" placeholder="Order note (optional)...">
     <div id="csm"><div class="cm"><span id="cic">0 items</span><span class="sl" id="sl" style="display:none"></span></div><span id="ctot">$0.00</span></div>
-    <button id="sub" onclick="startPayment()">✓ Submit Order</button>
+    <div style="display:flex;gap:8px">
+      <button id="sub" onclick="startPayment()" style="flex:1">✓ Submit Order</button>
+      <button onclick="openEmpModal()" style="flex:0 0 auto;padding:0 14px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:16px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito';touch-action:manipulation" title="Employee order">👤</button>
+    </div>
   </div>
 </div><!-- /cd -->
 
@@ -600,38 +620,7 @@ try {
 </div>
 
 <!-- ingredient category manager -->
-<div id="ing-cat-overlay" class="overlay" onclick="closeCatMgr()"></div>
-<div id="ing-cat-modal" class="modal-sheet">
-  <div class="modal-title">🥫 Ingredient Categories</div>
-  <div class="modal-sub">Rename or delete. Can't delete if ingredients still use that category.</div>
-  <div id="cat-mgr-list"></div>
-  <div class="cat-add-row">
-    <input class="cat-add-input" id="new-cat-input" placeholder="New category name...">
-    <button class="cat-add-btn" onclick="addIngCat()">Add</button>
-  </div>
-  <button class="modal-close" onclick="closeCatMgr()">Done</button>
-</div>
 
-<!-- category pill order manager -->
-<div id="pill-overlay" class="overlay" onclick="closePillMgr()"></div>
-<div id="pill-modal" class="modal-sheet">
-  <div class="modal-title">📋 Category Order</div>
-  <div class="modal-sub">Move categories up or down. All is always first, Combos always last.</div>
-  <div id="pom-list"></div>
-  <button class="modal-close" onclick="closePillMgr()">Done</button>
-</div>
-
-<!-- CSV import modal -->
-<div id="import-overlay" class="overlay" onclick="closeImport()"></div>
-<div id="import-modal" class="modal-sheet">
-  <div class="modal-title">📥 Import Menu Items</div>
-  <div class="modal-sub">CSV columns: <strong>Name, Price, Category, Emoji, Stock</strong><br>Example: Hot Dog, 3.00, Food, 🌭, 50<br>First row can be a header — it will be auto-skipped.</div>
-  <div id="import-zone-wrap">
-    <div class="import-zone" onclick="document.getElementById('csv-input').click()">
-      <div style="font-size:40px;margin-bottom:8px">📂</div>
-      <div style="font-weight:800;font-size:15px;color:var(--blue)">Tap to choose a CSV file</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px">Accepts .csv or .txt</div>
-    </div>
     <input type="file" id="csv-input" accept=".csv,.txt" style="display:none" onchange="handleCSV(this)">
   </div>
   <div id="import-preview" style="display:none">
@@ -646,6 +635,28 @@ try {
 </div>
 
 <!-- Inventory lock -->
+<!-- Employee order -->
+<div id="emp-overlay" class="overlay" onclick="closeEmpModal()"></div>
+<div id="emp-modal" class="modal-sheet">
+  <div class="modal-title">👤 Employee Order</div>
+  <div class="modal-sub">Enter the employee's name. Prices will switch to employee rates for items that have them set.</div>
+  <input id="emp-name" type="text" placeholder="Employee name..." style="width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid var(--border);font-size:16px;font-family:'Nunito';outline:none;margin-bottom:12px" onkeydown="if(event.key==='Enter')confirmEmpOrder()">
+  <div id="emp-err" style="color:var(--red);font-size:13px;font-weight:700;margin-bottom:10px;display:none">❌ Please enter a name</div>
+  <button class="bsv" onclick="confirmEmpOrder()">✅ Apply Employee Prices</button>
+  <button class="modal-close" onclick="closeEmpModal()" style="margin-top:8px">Cancel</button>
+</div>
+
+<!-- Stock log modal -->
+<div id="sl-overlay" class="overlay" onclick="closeStockLog()"></div>
+<div id="sl-modal" class="modal-sheet" style="max-height:92dvh">
+  <div class="modal-title">📋 Nightly Stock Log</div>
+  <div style="font-size:12px;color:var(--faint);font-weight:700;margin-bottom:12px" id="sl-date"></div>
+  <div id="sl-form" style="overflow-y:auto;max-height:55dvh;margin-bottom:12px"></div>
+  <div id="sl-discrepancies" style="display:none;margin-bottom:12px"></div>
+  <button class="bsv" onclick="submitStockLog()">✅ Submit Log</button>
+  <button class="modal-close" onclick="closeStockLog()" style="margin-top:8px">Cancel</button>
+</div>
+
 <div id="invlock-overlay" class="overlay"></div>
 <div id="invlock-modal" class="modal-sheet">
   <div class="modal-title">🔒 Inventory</div>
@@ -698,10 +709,6 @@ const DP=[
   {id:9,name:"Ice Cream",price:3.50,category:"Treats",stock:45,emoji:"🍦",recipe:[]},
   {id:10,name:"Popsicle",price:1.50,category:"Treats",stock:55,emoji:"🧊",recipe:[]},
 ];
-const DI=[
-  {id:201,name:"Chip Bag",emoji:"🥔",unit:"bags",stock:5,lowThreshold:2,category:"Food"},
-  {id:202,name:"Cheese Can",emoji:"🧀",unit:"cans",stock:3,lowThreshold:1,category:"Food"},
-];
 const DC=[
   {id:101,name:"Meal Deal",emoji:"🍱",type:"discount",items:[{productId:1,qty:1},{productId:7,qty:1}],comboPrice:4.50},
   {id:102,name:"Snack Pack",emoji:"🎒",type:"discount",items:[{productId:5,qty:1},{productId:4,qty:1},{productId:6,qty:1}],comboPrice:3.00},
@@ -709,15 +716,14 @@ const DC=[
 ];
 
 let products=JSON.parse(localStorage.getItem('cs_products')||'null')||DP;
-let ingredients=JSON.parse(localStorage.getItem('cs_ingredients')||'null')||DI;
-let ingCats=JSON.parse(localStorage.getItem('cs_ing_cats')||'null')||["Food","Drinks","Treats","Snacks"];
 let pillOrder=JSON.parse(localStorage.getItem('cs_pill_order')||'null')||["All","Food","Snacks","Drinks","Treats"];
 let combos=JSON.parse(localStorage.getItem('cs_combos')||'null')||DC;
 let orders=JSON.parse(localStorage.getItem('cs_orders')||'[]');
 let orderCounter=parseInt(localStorage.getItem('cs_order_counter')||'0');
 let productOrder=JSON.parse(localStorage.getItem('cs_product_order')||'null')||[];
+let stockLogs=JSON.parse(localStorage.getItem('cs_stock_logs')||'[]');
 let cart=[],discounts=[];
-let curCat='All',hFilter='today',curInvTab='products',newCT='discount',curIngCat='All';
+let curCat='All',hFilter='today',curInvTab='products',newCT='discount';
 let historyView='calendar',calDate=new Date();
 let editingOrderId=null,editCart=[],csvImportData=null;
 
@@ -732,13 +738,12 @@ function setSyncDot(state){
 
 function saveLocal(){
   localStorage.setItem('cs_products',JSON.stringify(products));
-  localStorage.setItem('cs_ingredients',JSON.stringify(ingredients));
-  localStorage.setItem('cs_ing_cats',JSON.stringify(ingCats));
   localStorage.setItem('cs_pill_order',JSON.stringify(pillOrder));
   localStorage.setItem('cs_combos',JSON.stringify(combos));
   localStorage.setItem('cs_orders',JSON.stringify(orders));
   localStorage.setItem('cs_order_counter',String(orderCounter));
   localStorage.setItem('cs_product_order',JSON.stringify(productOrder));
+  localStorage.setItem('cs_stock_logs',JSON.stringify(stockLogs));
 }
 
 let _saveTimer=null;
@@ -752,7 +757,7 @@ function save(){
       const {doc,setDoc,serverTimestamp}=window._fb;
       const db=window._db;
       await setDoc(doc(db,'pos','config'),{
-        products,ingredients,ingCats,pillOrder,combos,orderCounter,productOrder,
+        products,pillOrder,combos,orderCounter,productOrder,stockLogs,
         updatedAt:serverTimestamp()
       });
       setSyncDot('ok');
@@ -771,7 +776,7 @@ async function saveOrder(order){
     const {doc,setDoc,serverTimestamp}=window._fb;
     // save order as its own document so real-time listener catches it
     await setDoc(doc(window._db,'pos','config'),{
-      products,ingredients,ingCats,pillOrder,combos,orderCounter,productOrder,
+      products,pillOrder,combos,orderCounter,productOrder,stockLogs,
       updatedAt:serverTimestamp()
     });
     await setDoc(doc(window._db,'orders',String(order.id)),{
@@ -790,23 +795,12 @@ const fmD=i=>new Date(i).toLocaleDateString([],{month:'short',day:'numeric'});
 const fmNum=n=>String(n).padStart(2,'0');
 const tod=()=>new Date().toDateString();
 const gP=id=>products.find(p=>p.id===id);
-const gI=id=>ingredients.find(i=>i.id===id);
 const gC=id=>combos.find(c=>c.id===id);
 const gCQ=pid=>cart.filter(i=>i.id===pid).reduce((s,i)=>s+i.qty,0);
 const cIT=()=>cart.reduce((s,i)=>s+i.price*i.qty,0);
 
 // ── Cost & margin helpers ──────────────────────────────
-function calcProductCost(p){
-  if(p.recipe&&p.recipe.length>0){
-    // sum ingredient costs: each ingredient costs costPerUnit per unit, and yields servingsPerUnit servings
-    return p.recipe.reduce((total,r)=>{
-      const ing=gI(r.ingredientId);
-      if(!ing||!ing.costPerUnit)return total;
-      return total+(ing.costPerUnit/(r.servingsPerUnit||1));
-    },0);
-  }
-  return p.costPer||0;
-}
+function calcProductCost(p){return p.costPer||0;}
 function marginPct(p){
   const cost=calcProductCost(p);
   if(!cost||!p.price)return null;
@@ -836,17 +830,8 @@ function toast(msg,col='#10b981'){
   setTimeout(()=>{t.style.display='none';},2400);
 }
 
-function recipeStock(p){
-  if(!p.recipe||!p.recipe.length)return null;
-  let min=Infinity;
-  for(const r of p.recipe){const ing=gI(r.ingredientId);if(!ing)continue;const sv=Math.floor(ing.stock*r.servingsPerUnit);if(sv<min)min=sv;}
-  return min===Infinity?0:min;
-}
-function effectiveStock(p){const rs=recipeStock(p);return rs!==null?rs:p.stock;}
-function deductIngredients(productId,qty){
-  const p=gP(productId);if(!p||!p.recipe||!p.recipe.length)return;
-  ingredients=ingredients.map(ing=>{const r=p.recipe.find(x=>x.ingredientId===ing.id);if(!r)return ing;return{...ing,stock:Math.max(0,ing.stock-qty/r.servingsPerUnit)};});
-}
+function effectiveStock(p){return p.stock||0;}
+
 
 function swTab(tab){
   document.querySelectorAll('.scr').forEach(s=>s.classList.remove('active'));
@@ -1029,18 +1014,19 @@ function startPayment(){
 function closePayModal(){document.getElementById('pay-overlay').classList.remove('open');document.getElementById('pay-modal').classList.remove('open');}
 function submitOrder(payMethod){
   orderCounter++;
+  const isEmpOrder=_empName&&cart.some(i=>i.isEmployeePrice);
   const order={
     id:Date.now(),orderNum:orderCounter,
     items:cart.map(i=>({id:i.id,name:i.name,price:i.price,qty:i.qty,emoji:i.emoji})),
     discounts:discounts.map(d=>({name:d.name,emoji:d.emoji,savings:d.savings})),
     subtotal:cIT(),totalSavings:tD(),total:cTot(),
     payMethod,note:document.getElementById('on').value.trim(),
-    timestamp:new Date().toISOString()
+    timestamp:new Date().toISOString(),
+    ...(isEmpOrder&&{isEmployee:true,employeeName:_empName})
   };
   orders.unshift(order);
-  products=products.map(p=>{const ci=cart.find(i=>i.id===p.id);if(!ci)return p;if(!p.recipe||!p.recipe.length)return{...p,stock:Math.max(0,p.stock-ci.qty)};return p;});
-  cart.forEach(ci=>deductIngredients(ci.id,ci.qty));
-  cart=[];discounts=[];
+  products=products.map(p=>{const ci=cart.find(i=>i.id===p.id);if(!ci)return p;return{...p,stock:Math.max(0,p.stock-ci.qty)};});
+  cart=[];discounts=[];_empName=null;
   document.getElementById('on').value='';
   saveOrder(order);onChange();updateTodayTotal();closePayModal();closeCart();
   toast('✅ Order #'+fmNum(orderCounter)+' submitted!');
@@ -1109,12 +1095,11 @@ function renderProducts(){
   list=applyProductOrder(list);
   grid.innerHTML='';
   list.forEach(p=>{
-    const stk=effectiveStock(p),hasRecipe=p.recipe&&p.recipe.length>0;
     const hasVariants=p.variants&&p.variants.length>0;
     const inC=gCQ(p.id),oos=stk<=0,low=!oos&&stk<10;
     const el=document.createElement('div');
     el.className='pc'+(inC?' ic':'')+(oos?' oos':'');
-    el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}<div class="pe">${p.emoji}</div><div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasRecipe?'<div class="ing-badge">🥫 recipe</div>':''}${hasVariants?`<div class="var-badge">▾ ${p.variants.length} options</div>`:''}`;
+    el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}<div class="pe">${p.emoji}</div><div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasVariants?`<div class="var-badge">▾ ${p.variants.length} options</div>`:''}`;
     if(!oos)el.addEventListener('click',()=>{
       if(hasVariants) openVariantPicker(p.id);
       else addToCart(p.id);
@@ -1314,6 +1299,7 @@ function orderCardHTML(o){
       <div>
         <div class="oid">Order #${fmNum(o.orderNum||'??')}</div>
         <div class="otm">${fmD(o.timestamp)} · ${fmT(o.timestamp)}</div>
+        ${o.isEmployee?`<div class="onn">👤 Employee: ${o.employeeName}</div>`:''}
         ${o.note?`<div class="onn">📝 ${o.note}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
@@ -1361,38 +1347,40 @@ function exportCSV(){
   toast('📥 CSV exported!');
 }
 
-function renderInv(){renderProdList();if(curInvTab==='combos')renderComboList();if(curInvTab==='ingredients')renderIngList();}
+function renderInv(){renderProdList();if(curInvTab==='combos')renderComboList();if(curInvTab==='stocklog')renderStockLog();}
 
-function ingOpts(){return ingredients.map(i=>`<option value="${i.id}">${i.emoji} ${i.name} (${i.unit})</option>`).join('');}
-function recipeFormHTML(existingRecipe){
-  const rows=(existingRecipe&&existingRecipe.length?existingRecipe:[]).map((r,i)=>`<div class="recipe-row" id="rrow-${i}"><select class="fs rr-ing" data-ri="${i}" style="flex:1;font-size:13px;padding:8px 10px"><option value="">Select ingredient...</option>${ingOpts()}</select><div style="display:flex;flex-direction:column;align-items:center;gap:2px"><input class="recipe-qty rr-spu" data-ri="${i}" type="number" inputmode="decimal" value="${r.servingsPerUnit}" placeholder="e.g. 40" min="0.1" step="0.1"><div class="recipe-hint">servings/unit</div></div><button class="recipe-remove" onclick="removeRecipeRow(${i})">✕</button></div>`).join('');
-  return`<div class="recipe-section"><div class="recipe-title">🥫 Recipe <span style="font-size:11px;color:var(--green);font-weight:600">(optional)</span></div><div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Link bulk ingredients. Enter how many servings one unit makes.</div><div id="recipe-rows">${rows}</div><button class="add-ing-btn" onclick="addRecipeRow()">+ Add Ingredient</button></div>`;
-}
 function showAPF(){
   document.getElementById('epf').style.display='none';
   document.getElementById('apf').style.display='block';
-  document.getElementById('apf').innerHTML=`<div class="fc"><div class="ftit">New Item</div><div class="fr2"><input class="fi" id="np-n" placeholder="Item name *"></div><div class="g2 fr2"><input class="fi" id="np-p" type="number" inputmode="decimal" placeholder="Price *"><input class="fi" id="np-s" type="number" inputmode="numeric" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="np-c"><option>Food</option><option>Snacks</option><option>Drinks</option><option>Treats</option></select><input class="fi" id="np-e" placeholder="Emoji 🍕"></div><div class="fr2"><span class="fl">Your cost per item (if no recipe)</span><input class="fi" id="np-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01"></div>${recipeFormHTML([])}<div class="fa"><button class="bsv" onclick="addProd()">Add Item</button><button class="bcn" onclick="document.getElementById('apf').style.display='none'">Cancel</button></div></div>`;
-}
-function addRecipeRow(){
-  const cont=document.getElementById('recipe-rows'),idx=cont.querySelectorAll('.recipe-row').length;
-  const div=document.createElement('div');div.className='recipe-row';div.id='rrow-'+idx;
-  div.innerHTML=`<select class="fs rr-ing" data-ri="${idx}" style="flex:1;font-size:13px;padding:8px 10px"><option value="">Select ingredient...</option>${ingOpts()}</select><div style="display:flex;flex-direction:column;align-items:center;gap:2px"><input class="recipe-qty rr-spu" data-ri="${idx}" type="number" inputmode="decimal" placeholder="e.g. 40" min="0.1" step="0.1"><div class="recipe-hint">servings/unit</div></div><button class="recipe-remove" onclick="removeRecipeRow(${idx})">✕</button>`;
-  cont.appendChild(div);
-}
-function removeRecipeRow(i){const el=document.getElementById('rrow-'+i);if(el)el.remove();}
-function collectRecipe(){
-  const sels=document.querySelectorAll('.rr-ing'),spus=document.querySelectorAll('.rr-spu'),recipe=[];
-  sels.forEach((s,i)=>{const id=parseInt(s.value),spu=parseFloat(spus[i]?.value);if(id&&spu>0)recipe.push({ingredientId:id,servingsPerUnit:spu});});
-  return recipe;
+  const cats=['Food','Snacks','Drinks','Treats'];
+  document.getElementById('apf').innerHTML=`<div class="fc"><div class="ftit">New Item</div>
+    <div class="fr2"><input class="fi" id="np-n" placeholder="Item name *"></div>
+    <div class="g2 fr2">
+      <div><span class="fl">Sell price *</span><input class="fi" id="np-p" type="number" inputmode="decimal" placeholder="e.g. 3.00"></div>
+      <div><span class="fl">Employee price</span><input class="fi" id="np-ep" type="number" inputmode="decimal" placeholder="e.g. 1.50"></div>
+    </div>
+    <div class="g2 fr2">
+      <div><span class="fl">Category</span><select class="fs" id="np-c">${cats.map(x=>`<option>${x}</option>`).join('')}</select></div>
+      <div><span class="fl">Emoji</span><input class="fi" id="np-e" placeholder="🍕"></div>
+    </div>
+    <div class="g2 fr2">
+      <div><span class="fl">Current stock</span><input class="fi" id="np-s" type="number" inputmode="numeric" placeholder="e.g. 24"></div>
+      <div><span class="fl">Units per package</span><input class="fi" id="np-upp" type="number" inputmode="numeric" placeholder="e.g. 8"></div>
+    </div>
+    <div class="fr2"><span class="fl">Your cost per item (for margin tracking)</span><input class="fi" id="np-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01"></div>
+    ${variantFormHTML([])}
+    <div class="fa"><button class="bsv" onclick="addProd()">Add Item</button><button class="bcn" onclick="document.getElementById('apf').style.display='none'">Cancel</button></div>
+  </div>`;
 }
 function addProd(){
   const n=document.getElementById('np-n').value.trim(),p=parseFloat(document.getElementById('np-p').value);
   const s=parseInt(document.getElementById('np-s').value)||0,cat=document.getElementById('np-c').value,e=document.getElementById('np-e').value||'🍽️';
   const costPer=parseFloat(document.getElementById('np-cost')?.value)||0;
+  const employeePrice=parseFloat(document.getElementById('np-ep')?.value)||0;
+  const unitsPerPackage=parseInt(document.getElementById('np-upp')?.value)||0;
   if(!n||isNaN(p))return toast('Name & price required','#ef4444');
-  const recipe=collectRecipe();
   if(!pillOrder.includes(cat))pillOrder.push(cat);
-  products.push({id:Date.now(),name:n,price:p,stock:s,category:cat,emoji:e,recipe,costPer});
+  products.push({id:Date.now(),name:n,price:p,stock:s,category:cat,emoji:e,costPer,employeePrice,unitsPerPackage,variants:[]});
   save();document.getElementById('apf').style.display='none';renderProdList();renderCatBar();toast('✅ Item added!');
 }
 function variantFormHTML(variants){
@@ -1437,27 +1425,44 @@ function showEPF(id){
   _editingVariants=[...(p.variants||[])];
   document.getElementById('apf').style.display='none';
   document.getElementById('epf').style.display='block';
-  document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div><div class="fr2"><input class="fi" id="ep-n" value="${p.name}"></div><div class="g2 fr2"><input class="fi" id="ep-p" type="number" inputmode="decimal" value="${p.price}"><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}" placeholder="Stock (no recipe)"></div><div class="g2 fr2"><select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select><input class="fi" id="ep-e" value="${p.emoji}"></div><div class="fr2"><span class="fl">Your cost per item (if no recipe)</span><input class="fi" id="ep-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01" value="${p.costPer||''}"></div>${recipeFormHTML(p.recipe||[])}${variantFormHTML(p.variants||[])}<div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div></div>`;
-  setTimeout(()=>{(p.recipe||[]).forEach((r,i)=>{const sel=document.querySelector(`.rr-ing[data-ri="${i}"]`);if(sel)sel.value=r.ingredientId;});},0);
+  document.getElementById('epf').innerHTML=`<div class="fc em"><div class="ftit">✏️ Edit: ${p.name}</div>
+    <div class="fr2"><input class="fi" id="ep-n" value="${p.name}"></div>
+    <div class="g2 fr2">
+      <div><span class="fl">Sell price *</span><input class="fi" id="ep-p" type="number" inputmode="decimal" value="${p.price}"></div>
+      <div><span class="fl">Employee price</span><input class="fi" id="ep-ep" type="number" inputmode="decimal" value="${p.employeePrice||''}" placeholder="e.g. 1.50"></div>
+    </div>
+    <div class="g2 fr2">
+      <select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select>
+      <input class="fi" id="ep-e" value="${p.emoji}">
+    </div>
+    <div class="g2 fr2">
+      <div><span class="fl">Current stock</span><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}"></div>
+      <div><span class="fl">Units per package</span><input class="fi" id="ep-upp" type="number" inputmode="numeric" value="${p.unitsPerPackage||''}" placeholder="e.g. 8"></div>
+    </div>
+    <div class="fr2"><span class="fl">Your cost per item (for margin tracking)</span><input class="fi" id="ep-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01" value="${p.costPer||''}"></div>
+    ${variantFormHTML(p.variants||[])}
+    <div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div>
+  </div>`;
 }
 function saveProd(id){
   const n=document.getElementById('ep-n').value.trim(),p2=parseFloat(document.getElementById('ep-p').value);
   const s=parseInt(document.getElementById('ep-s').value)||0,cat=document.getElementById('ep-c').value,e=document.getElementById('ep-e').value||'🍽️';
   const costPer=parseFloat(document.getElementById('ep-cost')?.value)||0;
+  const employeePrice=parseFloat(document.getElementById('ep-ep')?.value)||0;
+  const unitsPerPackage=parseInt(document.getElementById('ep-upp')?.value)||0;
   if(!n||isNaN(p2))return toast('Name & price required','#ef4444');
-  const recipe=collectRecipe();
   const variants=collectVariants();
-  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,recipe,variants,costPer}:x);
+  products=products.map(x=>x.id===id?{...x,name:n,price:p2,stock:s,category:cat,emoji:e,variants,costPer,employeePrice,unitsPerPackage}:x);
   save();document.getElementById('epf').style.display='none';renderProdList();toast('✅ Updated!');
 }
 function delProd(id){products=products.filter(p=>p.id!==id);save();renderProdList();toast('Removed','#64748b');}
 function renderProdList(){
   document.getElementById('inv-list').innerHTML=products.map(p=>{
-    const stk=effectiveStock(p),hasRecipe=p.recipe&&p.recipe.length>0,sc=stk===0?'empty':stk<10?'low':'ok';
+    const stk=effectiveStock(p),sc=stk===0?'empty':stk<10?'low':'ok';
     const cost=calcProductCost(p);
     const pct=marginPct(p);
     const badge=cost?`<span class="cost-badge ${marginClass(pct)}">${pct}% margin</span>`:'';
-    return`<div class="ii"><div class="iie">${p.emoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}${hasRecipe?' · 🥫 recipe':''}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
+    return`<div class="ii"><div class="iie">${p.emoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
   }).join('');
 }
 
@@ -1490,174 +1495,13 @@ function handleCSV(input){
 function confirmImport(){
   if(!csvImportData||!csvImportData.length)return;
   csvImportData.forEach(r=>{
-    products.push({id:Date.now()+Math.random(),name:r.name,price:r.price,category:r.category,emoji:r.emoji,stock:r.stock,recipe:[]});
+    products.push({id:Date.now()+Math.random(),name:r.name,price:r.price,category:r.category,emoji:r.emoji,stock:r.stock,variants:[]});
     if(!pillOrder.includes(r.category))pillOrder.push(r.category);
   });
   save();closeImport();renderProdList();renderCatBar();
   toast('✅ Imported '+csvImportData.length+' items!');
 }
 
-function ingCatOpts(selected=''){return ingCats.map(c=>`<option value="${c}"${c===selected?' selected':''}>${c}</option>`).join('');}
-function showAIF(){
-  document.getElementById('eif').style.display='none';
-  document.getElementById('aif').style.display='block';
-  document.getElementById('aif').innerHTML=`<div class="fc ingr"><div class="ftit">🥫 New Ingredient</div><div class="g2 fr2"><input class="fi" id="ni-n" placeholder="Name *"><input class="fi" id="ni-e" placeholder="Emoji 🧀"></div><div class="g2 fr2"><div><span class="fl">Category</span><select class="fs" id="ni-cat">${ingCatOpts(ingCats[0])}</select></div><div><span class="fl">Unit (cans, bags…)</span><input class="fi" id="ni-u" placeholder="cans"></div></div><div class="g2 fr2"><div><span class="fl">Current stock</span><input class="fi" id="ni-s" type="number" inputmode="decimal" placeholder="3" step="0.1"></div><div><span class="fl">Low stock warning at</span><input class="fi" id="ni-l" type="number" inputmode="decimal" placeholder="1" step="0.1" value="1"></div></div><div class="fr2"><span class="fl">Cost per unit (what you pay) — optional</span><input class="fi" id="ni-cost" type="number" inputmode="decimal" placeholder="e.g. 1.50" step="0.01"></div><div class="fa"><button class="bsv" onclick="addIng()">Add</button><button class="bcn" onclick="document.getElementById('aif').style.display='none'">Cancel</button></div></div>`;
-}
-function addIng(){
-  const n=document.getElementById('ni-n').value.trim(),e=document.getElementById('ni-e').value||'📦';
-  const cat=document.getElementById('ni-cat').value||ingCats[0]||'General';
-  const u=document.getElementById('ni-u').value.trim()||'units',s=parseFloat(document.getElementById('ni-s').value)||0;
-  const l=parseFloat(document.getElementById('ni-l').value)||1;
-  const costPerUnit=parseFloat(document.getElementById('ni-cost').value)||0;
-  if(!n)return toast('Name required','#ef4444');
-  ingredients.push({id:Date.now(),name:n,emoji:e,category:cat,unit:u,stock:s,lowThreshold:l,costPerUnit});
-  save();document.getElementById('aif').style.display='none';renderIngList();toast('✅ Added!');
-}
-function showEIF(id){
-  const ing=gI(id);if(!ing)return;
-  document.getElementById('aif').style.display='none';
-  document.getElementById('eif').style.display='block';
-  document.getElementById('eif').innerHTML=`<div class="fc ingr em" style="border-color:#6ee7b7"><div class="ftit">✏️ Edit: ${ing.name}</div><div class="g2 fr2"><input class="fi" id="ei-n" value="${ing.name}"><input class="fi" id="ei-e" value="${ing.emoji}"></div><div class="g2 fr2"><div><span class="fl">Category</span><select class="fs" id="ei-cat">${ingCatOpts(ing.category||ingCats[0])}</select></div><div><span class="fl">Unit name</span><input class="fi" id="ei-u" value="${ing.unit}"></div></div><div class="g2 fr2"><div><span class="fl">Current stock</span><input class="fi" id="ei-s" type="number" inputmode="decimal" value="${ing.stock}" step="0.1"></div><div><span class="fl">Low stock warning at</span><input class="fi" id="ei-l" type="number" inputmode="decimal" value="${ing.lowThreshold||1}" step="0.1"></div></div><div class="fr2"><span class="fl">Cost per unit (what you pay)</span><input class="fi" id="ei-cost" type="number" inputmode="decimal" placeholder="e.g. 1.50" step="0.01" value="${ing.costPerUnit||''}"></div><div class="fa"><button class="bsb" onclick="saveIng(${id})">Save</button><button class="bcn" onclick="document.getElementById('eif').style.display='none'">Cancel</button></div></div>`;
-}
-function saveIng(id){
-  const n=document.getElementById('ei-n').value.trim(),e=document.getElementById('ei-e').value||'📦';
-  const cat=document.getElementById('ei-cat').value||ingCats[0]||'General';
-  const u=document.getElementById('ei-u').value.trim()||'units',s=parseFloat(document.getElementById('ei-s').value)||0;
-  const l=parseFloat(document.getElementById('ei-l').value)||1;
-  const costPerUnit=parseFloat(document.getElementById('ei-cost').value)||0;
-  if(!n)return toast('Name required','#ef4444');
-  ingredients=ingredients.map(i=>i.id===id?{...i,name:n,emoji:e,category:cat,unit:u,stock:s,lowThreshold:l,costPerUnit}:i);
-  save();document.getElementById('eif').style.display='none';renderIngList();toast('✅ Updated!');
-}
-function delIng(id){
-  ingredients=ingredients.filter(i=>i.id!==id);
-  products=products.map(p=>({...p,recipe:(p.recipe||[]).filter(r=>r.ingredientId!==id)}));
-  save();renderIngList();renderProdList();toast('Removed','#64748b');
-}
-function renderIngCatBar(){
-  const bar=document.getElementById('ing-cat-bar');
-  bar.innerHTML=['All',...ingCats].map(c=>`<button class="icp${curIngCat===c?' active':''}" onclick="setIngCat('${c}')">${c}</button>`).join('')+`<button class="icp manage-btn" onclick="openCatMgr()">⚙️ Edit</button>`;
-}
-function setIngCat(cat){curIngCat=cat;renderIngCatBar();renderIngList();}
-function renderIngList(){
-  renderIngCatBar();
-  const low=ingredients.filter(i=>i.stock<=(i.lowThreshold||1));
-  document.getElementById('restock-warnings').innerHTML=low.map(i=>`<div class="restock-banner"><div class="rb-icon">⚠️</div><div class="rb-text">Low stock: <span class="rb-name">${i.emoji} ${i.name}</span> — only ${i.stock.toFixed(2)} ${i.unit} left</div></div>`).join('');
-  const list=document.getElementById('ing-list');
-  const filtered=curIngCat==='All'?ingredients:ingredients.filter(i=>(i.category||ingCats[0])===curIngCat);
-  if(!filtered.length){list.innerHTML=`<div class="es"><div class="esi">🥫</div><div class="est">${curIngCat==='All'?'No ingredients yet.':'No ingredients in "'+curIngCat+'" yet.'}</div></div>`;return;}
-  const grouped={};
-  filtered.forEach(ing=>{const cat=ing.category||ingCats[0]||'General';if(!grouped[cat])grouped[cat]=[];grouped[cat].push(ing);});
-  const showHdrs=curIngCat==='All'&&Object.keys(grouped).length>1;
-  list.innerHTML=Object.entries(grouped).map(([cat,ings])=>{
-    const hdr=showHdrs?`<div class="ing-cat-header">${cat}</div>`:'';
-    return hdr+ings.map(ing=>{
-      const sc=ing.stock===0?'empty':ing.stock<=(ing.lowThreshold||1)?'low':'ok';
-      const users=products.filter(p=>(p.recipe||[]).some(r=>r.ingredientId===ing.id));
-      const usedBy=users.map(p=>{const r=p.recipe.find(x=>x.ingredientId===ing.id);return`${p.emoji} ${p.name} (${r.servingsPerUnit} srv/unit)`;}).join(', ');
-      let servingsLeft=null;
-      if(users.length>0){const r=users[0].recipe.find(x=>x.ingredientId===ing.id);if(r)servingsLeft=Math.floor(ing.stock*r.servingsPerUnit);}
-      return`<div class="ing-card"><div class="ing-top"><div class="ing-emoji">${ing.emoji}</div><div class="ing-info"><div class="ing-name">${ing.name}</div><div class="ing-unit">${ing.unit}</div>${ing.costPerUnit?`<div class="ing-cost">${fm(ing.costPerUnit)} per ${ing.unit}</div>`:''}${servingsLeft!==null?`<div class="ing-yield">≈ ${servingsLeft} servings left</div>`:''}</div><div class="ing-stock-col"><div class="ing-stock-val ${sc}">${ing.stock%1===0?ing.stock:ing.stock.toFixed(2)}</div><div class="ing-stock-lbl">${ing.unit.toUpperCase()}</div></div><div class="ing-actions"><button class="be" onclick="showEIF(${ing.id})">Edit</button><button class="bd" onclick="delIng(${ing.id})">Del</button></div></div>${usedBy?`<div class="ing-uses">Used by: ${usedBy}</div>`:'<div class="ing-uses" style="color:var(--faint)">Not linked to any products yet</div>'}</div>`;
-    }).join('');
-  }).join('');
-}
-
-function openCatMgr(){document.getElementById('ing-cat-overlay').classList.add('open');document.getElementById('ing-cat-modal').classList.add('open');renderCatMgrList();}
-function closeCatMgr(){document.getElementById('ing-cat-overlay').classList.remove('open');document.getElementById('ing-cat-modal').classList.remove('open');renderIngList();}
-function renderCatMgrList(){
-  document.getElementById('cat-mgr-list').innerHTML=ingCats.map((c,i)=>`<div class="cat-item"><span class="cat-item-name">${c}</span><button class="cat-rename-btn" onclick="renameCat(${i})">Rename</button><button class="cat-del-btn" onclick="delIngCat('${c}')">Delete</button></div>`).join('');
-}
-function renameCat(i){
-  const newName=prompt('Rename "'+ingCats[i]+'" to:',ingCats[i]);
-  if(!newName||!newName.trim())return;
-  const n=newName.trim();
-  if(ingCats.includes(n)&&ingCats[i]!==n){toast('Name already exists','#ef4444');return;}
-  const old=ingCats[i];ingCats[i]=n;
-  ingredients=ingredients.map(ing=>ing.category===old?{...ing,category:n}:ing);
-  save();renderCatMgrList();toast('✅ Renamed!');
-}
-function addIngCat(){
-  const input=document.getElementById('new-cat-input'),name=input.value.trim();if(!name)return;
-  if(ingCats.includes(name)){toast('Already exists','#ef4444');return;}
-  ingCats.push(name);input.value='';save();renderCatMgrList();toast('✅ Category added!');
-}
-function delIngCat(name){
-  if(ingredients.some(i=>i.category===name)){toast('Move ingredients out first','#ef4444');return;}
-  ingCats=ingCats.filter(c=>c!==name);
-  if(curIngCat===name)curIngCat='All';
-  save();renderCatMgrList();toast('Removed','#64748b');
-}
-
-function openPillMgr(){document.getElementById('pill-overlay').classList.add('open');document.getElementById('pill-modal').classList.add('open');renderPomList();}
-function closePillMgr(){document.getElementById('pill-overlay').classList.remove('open');document.getElementById('pill-modal').classList.remove('open');renderCatBar();}
-function renderPomList(){
-  const cats=pillOrder.filter(c=>c!=='All'&&c!=='Combos');
-  document.getElementById('pom-list').innerHTML=`
-    <div class="pom-item" style="opacity:.5"><span class="pom-name">All</span><span class="pom-locked">Always first</span></div>
-    ${cats.map((c,i)=>`<div class="pom-item"><span class="pom-name">${c}</span><div style="display:flex;gap:6px"><button class="move-btn" onclick="movePill(${i},-1)" ${i===0?'disabled':''}>↑</button><button class="move-btn" onclick="movePill(${i},1)" ${i===cats.length-1?'disabled':''}>↓</button></div></div>`).join('')}
-    <div class="pom-item" style="opacity:.5"><span class="pom-name">🎁 Combos</span><span class="pom-locked">Always last</span></div>`;
-}
-function movePill(i,dir){
-  const cats=pillOrder.filter(c=>c!=='All'&&c!=='Combos');
-  const j=i+dir;if(j<0||j>=cats.length)return;
-  [cats[i],cats[j]]=[cats[j],cats[i]];
-  pillOrder=['All',...cats,'Combos'];
-  save();renderPomList();
-}
-
-function showACF(){document.getElementById('ecf').style.display='none';newCT='discount';renderCF('acf',null);document.getElementById('acf').style.display='block';}
-function renderCF(cid,ex){
-  const isEd=!!ex,c=ex||{};newCT=c.type||newCT||'discount';
-  const pOpts=products.map(p=>`<option value="${p.id}">${p.emoji} ${p.name} (${fm(p.price)})</option>`).join('');
-  let ts='';
-  if(newCT==='discount'){
-    const rows=(c.items||[{productId:'',qty:1},{productId:'',qty:1}]).map((it,i)=>`<div class="g2 fr2"><select class="fs cis2" data-i="${i}"><option value="">Select item...</option>${pOpts}</select><input class="fi ciq2" data-i="${i}" type="number" inputmode="numeric" value="${it.qty||1}" min="1"></div>`).join('');
-    ts=`<div class="fr2"><span class="fl">Items in combo</span><div id="cic3">${rows}</div><button onclick="addCIR('${cid}')" style="margin-top:8px;background:#f0f9ff;color:var(--blue);border:1.5px solid #bae6fd;border-radius:10px;padding:8px 14px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Nunito'">+ Add Item</button></div><div class="fr2"><span class="fl">Combo price</span><input class="fi" id="cp2" type="number" inputmode="decimal" placeholder="e.g. 4.50" value="${c.comboPrice||''}"></div>`;
-  }else if(newCT==='bxgy'){
-    ts=`<div class="g2 fr2"><div><span class="fl">Buy this item</span><select class="fs" id="cbp"><option value="">Select...</option>${pOpts}</select></div><div><span class="fl">Qty needed</span><input class="fi" id="cbq" type="number" inputmode="numeric" value="${c.buyQty||2}" min="1"></div></div><div class="g2 fr2"><div><span class="fl">Get this item</span><select class="fs" id="cgp"><option value="">Select...</option>${pOpts}</select></div><div><span class="fl">Qty received</span><input class="fi" id="cgq" type="number" inputmode="numeric" value="${c.getQty||1}" min="1"></div></div><div class="fr2"><span class="fl">Discount %</span><select class="fs" id="cdp"><option value="100" ${(c.discountPct||100)===100?'selected':''}>100% — FREE</option><option value="50" ${c.discountPct===50?'selected':''}>50% off</option><option value="25" ${c.discountPct===25?'selected':''}>25% off</option></select></div>`;
-  }
-  const exJSON=isEd?JSON.stringify(ex).replace(/\\/g,'\\\\').replace(/'/g,"\\'"):'null';
-  document.getElementById(cid).innerHTML=`<div class="fc co"><div class="ftit">${isEd?'✏️ Edit Combo':'🎁 New Combo'}</div><div class="g2 fr2"><input class="fi" id="cm-n" placeholder="Name *" value="${c.name||''}"><input class="fi" id="cm-e" placeholder="Emoji" value="${c.emoji||'🎁'}"></div><div class="fr2"><span class="fl">Combo type</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px"><div class="to ${newCT==='discount'?'sel':''}" onclick="setCT('discount','${cid}',${exJSON})"><span class="toi">💰</span><span class="tol">Bundle Discount</span></div><div class="to ${newCT==='bxgy'?'sel':''}" onclick="setCT('bxgy','${cid}',${exJSON})"><span class="toi">🎁</span><span class="tol">Buy X Get Y</span></div></div></div>${ts}<div class="fa"><button class="${isEd?'bsb':'bso'}" onclick="${isEd?`saveEC(${c.id})`:'saveNC()'}">${isEd?'Save Changes':'Create Combo'}</button><button class="bcn" onclick="document.getElementById('${cid}').style.display='none'">Cancel</button></div></div>`;
-  if(isEd&&ex.type==='discount'&&ex.items){ex.items.forEach((it,i)=>{const s=document.querySelector(`.cis2[data-i="${i}"]`);if(s)s.value=it.productId;});}
-  if(isEd&&ex.type==='bxgy'){const bp=document.getElementById('cbp'),gp2=document.getElementById('cgp');if(bp)bp.value=ex.buyProductId;if(gp2)gp2.value=ex.getProductId;}
-}
-function addCIR(cid){
-  const cont=document.getElementById('cic3'),idx=cont.querySelectorAll('.cis2').length;
-  const pOpts=products.map(p=>`<option value="${p.id}">${p.emoji} ${p.name} (${fm(p.price)})</option>`).join('');
-  const row=document.createElement('div');row.className='g2 fr2';
-  row.innerHTML=`<select class="fs cis2" data-i="${idx}"><option value="">Select item...</option>${pOpts}</select><input class="fi ciq2" data-i="${idx}" type="number" inputmode="numeric" value="1" min="1">`;
-  cont.appendChild(row);
-}
-function setCT(type,cid,ex){
-  newCT=type;
-  const n=document.getElementById('cm-n')?.value||'',e2=document.getElementById('cm-e')?.value||'🎁';
-  const merged=ex?{...ex,type,name:n,emoji:e2}:null;
-  renderCF(cid,merged);
-  if(!ex){document.getElementById('cm-n').value=n;document.getElementById('cm-e').value=e2;}
-}
-function collectCD(id){
-  const n=document.getElementById('cm-n')?.value.trim(),e2=document.getElementById('cm-e')?.value||'🎁';
-  if(!n)return null;
-  if(newCT==='discount'){
-    const sels=document.querySelectorAll('.cis2'),qtys=document.querySelectorAll('.ciq2'),items=[];
-    sels.forEach((s,i)=>{const pid=parseInt(s.value),qty=parseInt(qtys[i]?.value)||1;if(pid)items.push({productId:pid,qty});});
-    if(items.length<2)return null;
-    const cp=parseFloat(document.getElementById('cp2')?.value);if(isNaN(cp))return null;
-    return{id:id||Date.now(),name:n,emoji:e2,type:'discount',items,comboPrice:cp};
-  }
-  if(newCT==='bxgy'){
-    const bpid=parseInt(document.getElementById('cbp')?.value),bq=parseInt(document.getElementById('cbq')?.value)||2;
-    const gpid=parseInt(document.getElementById('cgp')?.value),gq=parseInt(document.getElementById('cgq')?.value)||1;
-    const dp=parseInt(document.getElementById('cdp')?.value)||100;
-    if(!bpid||!gpid)return null;
-    return{id:id||Date.now(),name:n,emoji:e2,type:'bxgy',buyProductId:bpid,buyQty:bq,getProductId:gpid,getQty:gq,discountPct:dp};
-  }
-  return null;
-}
-function saveNC(){const d=collectCD(null);if(!d)return toast('Fill in all required fields','#ef4444');combos.push(d);save();document.getElementById('acf').style.display='none';renderComboList();toast('🎁 Combo created!','#f97316');}
-function showECF(id){const c=gC(id);if(!c)return;newCT=c.type;document.getElementById('acf').style.display='none';document.getElementById('ecf').style.display='block';renderCF('ecf',c);}
-function saveEC(id){const d=collectCD(id);if(!d)return toast('Fill in all fields','#ef4444');combos=combos.map(c=>c.id===id?d:c);save();document.getElementById('ecf').style.display='none';renderComboList();toast('✅ Combo updated!');}
-function delCombo(id){combos=combos.filter(c=>c.id!==id);save();renderComboList();toast('Removed','#64748b');}
 function renderComboList(){
   const list=document.getElementById('combo-list');
   if(!combos.length){list.innerHTML=`<div class="es"><div class="esi">🎁</div><div class="est">No combos yet.</div></div>`;return;}
@@ -1840,6 +1684,176 @@ function confirmInvLock(){
   invUnlocked=true;
   closeInvLock();
   swTab('inventory');
+}
+
+// ── Employee order ─────────────────────────────────────
+let _empName=null;
+function openEmpModal(){
+  if(!cart.length){toast('Add items to cart first','#64748b');return;}
+  document.getElementById('emp-name').value=_empName||'';
+  document.getElementById('emp-err').style.display='none';
+  document.getElementById('emp-overlay').classList.add('open');
+  document.getElementById('emp-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('emp-name').focus(),100);
+}
+function closeEmpModal(){
+  document.getElementById('emp-overlay').classList.remove('open');
+  document.getElementById('emp-modal').classList.remove('open');
+}
+function confirmEmpOrder(){
+  const name=document.getElementById('emp-name').value.trim();
+  if(!name){document.getElementById('emp-err').style.display='block';return;}
+  _empName=name;
+  // Apply employee prices to cart items that have them
+  let applied=0;
+  cart=cart.map(item=>{
+    const p=gP(item.id);
+    if(p&&p.employeePrice&&p.employeePrice>0){applied++;return{...item,price:p.employeePrice,isEmployeePrice:true};}
+    return item;
+  });
+  closeEmpModal();
+  onChange();
+  toast(`👤 ${name} — employee prices applied to ${applied} item${applied!==1?'s':''}`);
+}
+
+// ── Stock log ──────────────────────────────────────────
+function openedToUnits(status,unitsPerPkg){
+  if(!unitsPerPkg)return typeof status==='number'?status:0;
+  if(status==='none')return 0;
+  if(status==='nearly_empty')return Math.round(unitsPerPkg*0.25);
+  if(status==='half')return Math.round(unitsPerPkg*0.5);
+  if(status==='nearly_full')return Math.round(unitsPerPkg*0.75);
+  return typeof status==='number'?status:0;
+}
+function calcExpectedStock(productId,sinceTimestamp){
+  const p=gP(productId);if(!p)return null;
+  const base=p.stock||0;
+  // Subtract sales since last log
+  const sold=orders.filter(o=>new Date(o.timestamp)>new Date(sinceTimestamp||0))
+    .reduce((s,o)=>s+o.items.filter(i=>i.id===productId).reduce((is,i)=>is+i.qty,0),0);
+  return Math.max(0,base-sold);
+}
+function openStockLog(){
+  const now=new Date();
+  document.getElementById('sl-date').textContent=now.toLocaleString('en-US',{timeZone:'America/New_York',weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'});
+  document.getElementById('sl-discrepancies').style.display='none';
+  // Build form
+  const form=document.getElementById('sl-form');
+  form.innerHTML=products.map(p=>{
+    const hasUPP=p.unitsPerPackage>0;
+    return`<div class="sl-row" id="slr-${p.id}">
+      <div class="sl-prod-name">${p.emoji} ${p.name} ${hasUPP?`<span style="font-size:11px;color:var(--faint);font-weight:600">(${p.unitsPerPackage}/pkg)</span>`:''}</div>
+      <div class="sl-inputs">
+        <div>
+          <div class="sl-label">Sealed packages</div>
+          <input class="fi" id="sl-sealed-${p.id}" type="number" inputmode="numeric" min="0" placeholder="0" style="padding:8px 10px;font-size:14px" oninput="updateSlCalc(${p.id})">
+        </div>
+        <div>
+          <div class="sl-label">Opened package</div>
+          ${hasUPP?`<select class="fs" id="sl-opened-${p.id}" style="font-size:13px;padding:8px 10px" onchange="updateSlCalc(${p.id})">
+            <option value="none">None</option>
+            <option value="nearly_empty">Nearly Empty (~25%)</option>
+            <option value="half">Half (~50%)</option>
+            <option value="nearly_full">Nearly Full (~75%)</option>
+          </select>`:`<input class="fi" id="sl-opened-${p.id}" type="number" inputmode="numeric" min="0" placeholder="units" style="padding:8px 10px;font-size:14px" oninput="updateSlCalc(${p.id})">`}
+        </div>
+      </div>
+      <div class="sl-calc" id="sl-calc-${p.id}">Total: — units</div>
+      <div class="sl-disc" id="sl-disc-${p.id}"></div>
+    </div>`;
+  }).join('');
+  document.getElementById('sl-overlay').classList.add('open');
+  document.getElementById('sl-modal').classList.add('open');
+}
+function closeStockLog(){
+  document.getElementById('sl-overlay').classList.remove('open');
+  document.getElementById('sl-modal').classList.remove('open');
+}
+function updateSlCalc(productId){
+  const p=gP(productId);if(!p)return;
+  const sealedEl=document.getElementById('sl-sealed-'+productId);
+  const openedEl=document.getElementById('sl-opened-'+productId);
+  if(!sealedEl||!openedEl)return;
+  const sealed=parseInt(sealedEl.value)||0;
+  const openedVal=p.unitsPerPackage>0?openedEl.value:(parseInt(openedEl.value)||0);
+  const openedUnits=p.unitsPerPackage>0?openedToUnits(openedVal,p.unitsPerPackage):(parseInt(openedEl.value)||0);
+  const total=sealed*(p.unitsPerPackage||1)+openedUnits;
+  document.getElementById('sl-calc-'+productId).textContent=`Total: ${total} units`;
+  // Expected
+  const lastLog=stockLogs.length?stockLogs[stockLogs.length-1]:null;
+  const lastTs=lastLog?.loggedAt||null;
+  const expected=calcExpectedStock(productId,lastTs);
+  if(expected!==null&&expected>=0){
+    const diff=total-expected;
+    const diffPct=expected>0?Math.abs(diff/expected*100):0;
+    const flagged=diffPct>10&&Math.abs(diff)>1;
+    const el=document.getElementById('sl-disc-'+productId);
+    const row=document.getElementById('slr-'+productId);
+    if(flagged){
+      el.className='sl-disc warn';
+      el.textContent=`⚠️ Expected ~${expected} units (${diff>0?'+':''}${diff})`;
+      row.classList.add('flagged');
+    } else {
+      el.className='sl-disc ok';
+      el.textContent=`✓ Expected ~${expected} units`;
+      row.classList.remove('flagged');
+    }
+  }
+}
+function submitStockLog(){
+  const loggedAt=new Date().toISOString();
+  const items=[];
+  const flagged=[];
+  products.forEach(p=>{
+    const sealedEl=document.getElementById('sl-sealed-'+p.id);
+    const openedEl=document.getElementById('sl-opened-'+p.id);
+    if(!sealedEl)return;
+    const sealed=parseInt(sealedEl.value)||0;
+    const openedVal=p.unitsPerPackage>0?openedEl?.value:'number';
+    const openedUnits=p.unitsPerPackage>0?openedToUnits(openedVal,p.unitsPerPackage):(parseInt(openedEl?.value)||0);
+    const total=sealed*(p.unitsPerPackage||1)+openedUnits;
+    const lastLog=stockLogs.length?stockLogs[stockLogs.length-1]:null;
+    const expected=calcExpectedStock(p.id,lastLog?.loggedAt||null);
+    const diff=total-(expected||0);
+    const diffPct=expected>0?Math.abs(diff/expected*100):0;
+    const isFlagged=diffPct>10&&Math.abs(diff)>1&&expected!==null;
+    items.push({productId:p.id,name:p.name,emoji:p.emoji,sealedPackages:sealed,openedStatus:openedVal,totalUnits:total,expectedUnits:expected,diff,diffPct:Math.round(diffPct),flagged:isFlagged});
+    if(isFlagged)flagged.push({name:p.name,emoji:p.emoji,total,expected,diff});
+    // Update product stock
+    products=products.map(x=>x.id===p.id?{...x,stock:total}:x);
+  });
+  stockLogs.push({id:Date.now(),loggedAt,items});
+  save();
+  closeStockLog();
+  renderStockLog();
+  renderProdList();
+  // Show discrepancy summary
+  if(flagged.length){
+    const msg=flagged.map(f=>`${f.emoji} ${f.name}: got ${f.total}, expected ${f.expected} (${f.diff>0?'+':''}${f.diff})`).join('\n');
+    toast(`⚠️ ${flagged.length} discrepanc${flagged.length>1?'ies':'y'} flagged — check Stock Log`,'#ef4444',5000);
+  } else {
+    toast('✅ Stock log saved — all counts look good!');
+  }
+}
+function renderStockLog(){
+  const el=document.getElementById('sl-history');
+  if(!stockLogs.length){el.innerHTML=`<div class="es"><div class="esi">📋</div><div class="est">No logs yet. Tap "Log Tonight\'s Stock" to get started.</div></div>`;return;}
+  const sorted=[...stockLogs].reverse();
+  el.innerHTML=sorted.map(log=>{
+    const d=new Date(log.loggedAt);
+    const dateStr=d.toLocaleString('en-US',{timeZone:'America/New_York',weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    const flaggedItems=log.items.filter(i=>i.flagged);
+    return`<div class="sl-history-item">
+      <div class="sl-hist-hdr">
+        <div class="sl-hist-date">${dateStr}</div>
+        ${flaggedItems.length?`<div class="sl-hist-flag">⚠️ ${flaggedItems.length} flag${flaggedItems.length>1?'s':''}</div>`:'<div style="font-size:11px;font-weight:700;color:var(--green)">✓ Clean</div>'}
+      </div>
+      ${log.items.map(i=>`<div class="sl-hist-row${i.flagged?' sl-hist-flagged':''}">
+        <span>${i.emoji} ${i.name}</span>
+        <span>${i.totalUnits} units${i.expectedUnits!==null?` (expected ${i.expectedUnits}${i.flagged?` ⚠️ ${i.diff>0?'+':''}${i.diff}`:''})`:''}}</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
 }
 
 // ── Auto day reset ─────────────────────────────────────
@@ -2097,12 +2111,11 @@ async function initApp(){
       if(configSnap.exists()){
         const d=configSnap.data();
         if(d.products)     products=d.products;
-        if(d.ingredients)  ingredients=d.ingredients;
-        if(d.ingCats)      ingCats=d.ingCats;
         if(d.pillOrder)    pillOrder=d.pillOrder;
         if(d.combos)       combos=d.combos;
         if(d.orderCounter) orderCounter=d.orderCounter;
         if(d.productOrder) productOrder=d.productOrder;
+        if(d.stockLogs)    stockLogs=d.stockLogs;
         saveLocal();
         renderCatBar();renderProducts();updateTodayTotal();
       }
