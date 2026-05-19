@@ -854,12 +854,12 @@ function swTab(tab){
 }
 function swIT(tab){
   curInvTab=tab;
-  document.querySelectorAll('.itb').forEach((b,i)=>b.classList.toggle('active',['products','ingredients','combos'][i]===tab));
+  document.querySelectorAll('.itb').forEach((b,i)=>b.classList.toggle('active',['products','stocklog','combos'][i]===tab));
   document.getElementById('inv-p').style.display=tab==='products'?'block':'none';
-  document.getElementById('inv-i').style.display=tab==='ingredients'?'block':'none';
+  document.getElementById('inv-sl').style.display=tab==='stocklog'?'block':'none';
   document.getElementById('inv-c').style.display=tab==='combos'?'block':'none';
+  if(tab==='stocklog')renderStockLog();
   if(tab==='combos')renderComboList();
-  if(tab==='ingredients')renderIngList();
 }
 
 function renderCatBar(){
