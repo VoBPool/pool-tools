@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lifeguard Written Test — Self Quiz</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #0E4D8C;
+    --primary-light: #1A6CB0;
+    --bg: #F0F6FB;
+    --card: #FFFFFF;
+    --text: #1A2733;
+    --muted: #5A6B7A;
+    --success: #2A8E5E;
+    --success-bg: #E5F5EC;
+    --danger: #B53A3A;
+    --danger-bg: #FBEAEA;
+    --border: #D5E2EE;
+    --accent: #FFB627;
+  }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  body {
+    background: linear-gradient(180deg, #DAEAF6 0%, #F0F6FB 100%);
+    background-attachment: fixed;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 12px 0 24px;
+  }
+  .swim-emoji {
+    font-size: 48px;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 2px 4px rgba(14,77,140,0.2));
+  }
+  h1 {
+    font-size: 28px;
+    color: var(--primary);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(14,77,140,0.08), 0 1px 3px rgba(14,77,140,0.05);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .card-body { padding: 24px; }
+  @media (max-width: 480px) {
+    .card-body { padding: 18px; }
+  }
+
+  /* Intro screen */
+  .intro-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 12px;
+  }
+  .intro-text {
+    color: var(--muted);
+    margin-bottom: 20px;
+    font-size: 15px;
+  }
+  .topic-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 480px) {
+    .topic-grid { grid-template-columns: 1fr; }
+  }
+  .topic-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    background: white;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: inherit;
+    text-align: left;
+  }
+  .topic-btn:hover {
+    border-color: var(--primary-light);
+    background: #F5FAFD;
+  }
+  .topic-btn.selected {
+    border-color: var(--primary);
+    background: #E5F0FA;
+    color: var(--primary);
+  }
+  .topic-btn .count {
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .topic-btn.selected .count {
+    background: var(--primary);
+    color: white;
+  }
+
+  /* Primary button */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+  .btn:hover { background: var(--primary-light); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { background: #B8C5D6; cursor: not-allowed; transform: none; }
+  .btn-secondary {
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+  }
+  .btn-secondary:hover { background: #F5FAFD; }
+  .btn-group { display: flex; gap: 8px; }
+  .btn-group .btn { flex: 1; }
+
+  /* Progress bar */
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light));
+    transition: width 0.3s ease;
+  }
+  .progress-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Topic chip */
+  .topic-chip {
+    display: inline-block;
+    background: var(--bg);
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Question */
+  .question {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-bottom: 18px;
+    color: var(--text);
+  }
+
+  /* Options */
+  .options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 13px 14px;
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 15px;
+    text-align: left;
+    font-family: inherit;
+    color: var(--text);
+    width: 100%;
+  }
+  .option:hover:not(.disabled) {
+    border-color: var(--primary-light);
+    background: #F5FAFD;
+  }
+  .option.disabled { cursor: default; }
+  .option-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+  .option-text { flex: 1; padding-top: 2px; }
+  .option.correct {
+    border-color: var(--success);
+    background: var(--success-bg);
+  }
+  .option.correct .option-letter {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+  }
+  .option.incorrect {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+  }
+  .option.incorrect .option-letter {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+  }
+
+  /* Feedback */
+  .feedback {
+    background: var(--bg);
+    border-left: 4px solid var(--primary);
+    padding: 14px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .feedback.correct {
+    background: var(--success-bg);
+    border-left-color: var(--success);
+  }
+  .feedback.incorrect {
+    background: var(--danger-bg);
+    border-left-color: var(--danger);
+  }
+  .feedback-title {
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* Results */
+  .results-score {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .score-big {
+    font-size: 64px;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+  }
+  .score-label {
+    font-size: 16px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .score-grade {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .grade-pass { background: var(--success-bg); color: var(--success); }
+  .grade-fail { background: var(--danger-bg); color: var(--danger); }
+  .review-list { margin-top: 8px; }
+  .review-item {
+    padding: 14px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+  }
+  .review-q {
+    font-weight: 600;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .review-meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .review-meta .your { color: var(--danger); font-weight: 600; }
+  .review-meta .correct { color: var(--success); font-weight: 600; }
+
+  .footer-note {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .footer-note a { color: var(--primary); text-decoration: none; }
+  .footer-note a:hover { text-decoration: underline; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="swim-emoji">🏊</div>
+    <h1>Lifeguard Written Test</h1>
+    <div class="subtitle">Self-Quiz · American Red Cross Lifeguarding</div>
+  </div>
+
+  <!-- INTRO SCREEN -->
+  <div id="intro" class="card">
+    <div class="card-body">
+      <div class="intro-title">Pick a topic — or test on everything</div>
+      <div class="intro-text">Each question has one correct answer. You'll see an explanation right after you answer. At the end you can review what you missed.</div>
+
+      <div id="topicGrid" class="topic-grid"></div>
+
+      <button id="startBtn" class="btn">Start Quiz</button>
+    </div>
+  </div>
+
+  <!-- QUIZ SCREEN -->
+  <div id="quiz" class="card hidden">
+    <div class="card-body">
+      <div class="progress-wrap">
+        <div class="progress-bar"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+        <div id="progressText" class="progress-text">1 of 10</div>
+      </div>
+      <div id="topicChip" class="topic-chip"></div>
+      <div id="question" class="question"></div>
+      <div id="options" class="options"></div>
+      <div id="feedback" class="feedback hidden"></div>
+      <button id="nextBtn" class="btn hidden">Next →</button>
+    </div>
+  </div>
+
+  <!-- RESULTS SCREEN -->
+  <div id="results" class="card hidden">
+    <div class="card-body">
+      <div class="results-score">
+        <div class="score-big"><span id="scoreNum">0</span><span style="font-size:32px;color:var(--muted)">/<span id="scoreTotal">0</span></span></div>
+        <div class="score-label"><span id="scorePct">0</span>% correct</div>
+        <div id="scoreGrade" class="score-grade"></div>
+      </div>
+      <div id="reviewSection" class="hidden">
+        <div class="intro-title" style="font-size:18px;margin-bottom:12px">Review missed questions</div>
+        <div id="reviewList" class="review-list"></div>
+      </div>
+      <div class="btn-group" style="margin-top:20px">
+        <button id="retryBtn" class="btn btn-secondary">Retry</button>
+        <button id="newQuizBtn" class="btn">New Quiz</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Built for VoB Pool lifeguard training · Based on the Red Cross Lifeguarding Manual (June 2017)
+  </div>
+</div>
+
+<script>
+// ====================== QUESTION BANK ======================
+const QUESTIONS = [
+  // ---- Professional Lifeguard ----
+  { topic: "Professional Lifeguard",
+    q: "What is the primary responsibility of a lifeguard?",
+    options: [
+      "To enforce facility rules and regulations",
+      "To prevent drowning and other injuries from occurring",
+      "To respond to all emergencies that happen",
+      "To administer first aid, CPR, and AED"
+    ],
+    correct: 1,
+    explain: "A lifeguard's primary responsibility is to prevent drowning and other injuries from occurring. Everything else (rule enforcement, responding to emergencies, first aid) supports this primary goal."
+  },
+  { topic: "Professional Lifeguard",
+    q: "Which of these is NOT a characteristic of a professional lifeguard while on surveillance?",
+    options: [
+      "Keeping rescue equipment positioned for immediate use",
+      "Sitting or standing upright at the station",
+      "Engaging in friendly conversation with patrons at the stand",
+      "Keeping eyes focused on the assigned zone at all times"
+    ],
+    correct: 2,
+    explain: "Professional lifeguards keep interactions brief and do NOT engage in conversations that interrupt patron surveillance. The eyes must stay on the zone."
+  },
+
+  // ---- Lightning ----
+  { topic: "Weather",
+    q: "When should everyone be cleared from the water for lightning/thunder?",
+    options: [
+      "After the second sound of thunder or sight of lightning",
+      "When lightning is within 5 miles",
+      "At the FIRST sound of thunder or FIRST sight of lightning",
+      "When the local weather service issues a severe weather alert"
+    ],
+    correct: 2,
+    explain: "Clear everyone at the FIRST sound of thunder or FIRST sight of lightning. Don't wait — lightning can strike up to 10-15 miles from any rainfall."
+  },
+  { topic: "Weather",
+    q: "How long must you wait after the last thunder/lightning before resuming activities?",
+    options: ["15 minutes", "20 minutes", "30 minutes", "60 minutes"],
+    correct: 2,
+    explain: "The National Lightning Safety Institute recommends waiting 30 minutes after the last lightning sighting or sound of thunder."
+  },
+
+  // ---- Drowning Recognition ----
+  { topic: "Surveillance & Recognition",
+    q: "Which of these best describes an ACTIVE drowning victim?",
+    options: [
+      "Calling and waving for help while treading water",
+      "Vertical in the water, head tilted back, arms pressing down, unable to call out",
+      "Face-down at the bottom of the pool, motionless",
+      "Floating calmly on their back, scared but breathing"
+    ],
+    correct: 1,
+    explain: "Active drowning victims are vertical with head tilted back, arms extended to the side or front pressing down, struggling to breathe. They CANNOT call out — all effort goes into getting a breath (the instinctive drowning response)."
+  },
+  { topic: "Surveillance & Recognition",
+    q: "Which is true of a DISTRESSED swimmer (not yet drowning)?",
+    options: [
+      "Cannot call for help",
+      "Not breathing",
+      "Generally able to reach for a rescue device",
+      "Always face-down"
+    ],
+    correct: 2,
+    explain: "A distressed swimmer is breathing, can call or wave for help, and is generally able to reach for a rescue device like a rescue tube."
+  },
+  { topic: "Surveillance & Recognition",
+    q: "A PASSIVE drowning victim:",
+    options: [
+      "Is struggling and calling for help",
+      "Is breathing but unable to swim",
+      "Is not breathing, with no arm or leg action, may be face-up or face-down at the surface or on the bottom",
+      "Is treading water but exhausted"
+    ],
+    correct: 2,
+    explain: "Passive drowning victims are NOT breathing, have no defined arm/leg action, and may float face-up/face-down at the surface or sink to the bottom. May be limp or have slight convulsive-like movements."
+  },
+  { topic: "Surveillance & Recognition",
+    q: "Lifeguards should be able to recognize and respond to a drowning victim within how many seconds?",
+    options: ["10 seconds", "20 seconds", "30 seconds", "60 seconds"],
+    correct: 2,
+    explain: "30 seconds is the recognize-and-respond benchmark. The full recognize → reach → extricate → ventilations sequence should be done within 1½ to 2 minutes."
+  },
+  { topic: "Surveillance & Recognition",
+    q: "Effective scanning means:",
+    options: [
+      "Watching swimmers in the most crowded area only",
+      "Actively searching the entire volume of water (bottom, middle, surface), point-to-point",
+      "Relying on peripheral vision to cover the whole zone",
+      "Focusing on the deep end since shallow water is safer"
+    ],
+    correct: 1,
+    explain: "\"Search, don't watch.\" Effective scanning means actively searching the entire volume of water, point-to-point, moving your head and eyes and looking directly at each area."
+  },
+  { topic: "Surveillance & Recognition",
+    q: "Preventative lifeguarding focuses on:",
+    options: [
+      "Performing the fastest possible rescue when an emergency happens",
+      "Recovering bodies and providing care after an incident",
+      "Intervening BEFORE potentially dangerous behaviors become emergencies",
+      "Setting up and breaking down rescue equipment efficiently"
+    ],
+    correct: 2,
+    explain: "Preventative lifeguarding is about intervening early — redirecting a child to shallow water, stopping breath-holding contests, enforcing rules positively — to keep emergencies from happening in the first place."
+  },
+
+  // ---- EAP ----
+  { topic: "EAP & Safety Team",
+    q: "What is the purpose of an Emergency Action Plan (EAP)?",
+    options: [
+      "To document incidents for legal records",
+      "To describe the safety team's responsibilities and roles in an emergency",
+      "To list the equipment available at the facility",
+      "To outline the facility's hours of operation"
+    ],
+    correct: 1,
+    explain: "EAPs are detailed plans describing the safety team's responsibilities in an emergency. Lifeguards learn their assigned role AND the roles of other team members."
+  },
+  { topic: "EAP & Safety Team",
+    q: "Which of these is a member of the safety team?",
+    options: [
+      "Only certified lifeguards",
+      "Lifeguards, instructors, admissions/concession/maintenance staff, supervisors, and EMS",
+      "Only lifeguards and the facility manager",
+      "Only off-site management personnel"
+    ],
+    correct: 1,
+    explain: "The safety team includes everyone working on-site: lifeguards, aquatics instructors, admissions, concessions/retail, maintenance/security, supervisors. Off-site members include management, legal, and PR personnel."
+  },
+
+  // ---- Entries ----
+  { topic: "Water Rescue",
+    q: "Which entry is BEST when a victim with a possible spinal injury is near the side of the pool?",
+    options: ["Stride jump", "Compact jump", "Slide-in entry", "Run-and-swim entry"],
+    correct: 2,
+    explain: "Slide-in entry is the safest, especially when a victim with a head/neck/spinal injury is close to the side. It's slower but creates minimal water disturbance."
+  },
+  { topic: "Water Rescue",
+    q: "A stride jump may be used only if:",
+    options: [
+      "The water is at least 3 feet deep and you are no more than 5 feet above water",
+      "The water is at least 5 feet deep and you are no more than 3 feet above water",
+      "The water is over 8 feet deep, regardless of your height above water",
+      "The pool is empty of other swimmers"
+    ],
+    correct: 1,
+    explain: "Stride jump requires water at least 5 ft deep AND you no more than 3 ft above the water."
+  },
+  { topic: "Water Rescue",
+    q: "If you're entering from a height greater than 3 feet (like a lifeguard stand), which entry is most appropriate?",
+    options: ["Stride jump", "Compact jump, into water at least 5 ft deep", "Slide-in entry", "Run-and-swim"],
+    correct: 1,
+    explain: "From heights > 3 feet, use a compact jump, and the water must be at least 5 ft deep."
+  },
+  { topic: "Water Rescue",
+    q: "An Active Victim FRONT rescue is used for:",
+    options: [
+      "An unresponsive face-down victim",
+      "A drowning victim who is struggling and facing TOWARD you",
+      "A submerged victim in deep water",
+      "A passive victim in shallow water"
+    ],
+    correct: 1,
+    explain: "Active Front Rescue: drowning victim, struggling, facing toward you. Active Rear is for the same victim facing away."
+  },
+  { topic: "Water Rescue",
+    q: "A passive submerged victim in shallow water requires which rescue type?",
+    options: [
+      "Active front rescue",
+      "Head-first surface dive in deep water",
+      "Passive submerged victim rescue (shallow water)",
+      "Reaching assist from the deck"
+    ],
+    correct: 2,
+    explain: "Passive Submerged Victim — Shallow Water rescue is the specific technique for a victim who is passive and submerged in shallow water."
+  },
+
+  // ---- Extrication & HNB ----
+  { topic: "Extrication & Spinal",
+    q: "During spinal backboarding at the pool edge, the backboard is positioned:",
+    options: [
+      "Horizontally floating in the water",
+      "Vertically in the water against the wall, with the head end submerged if possible",
+      "On the deck with the head end pointing away from the water",
+      "Underneath the victim before the rescuer reaches them"
+    ],
+    correct: 1,
+    explain: "The assisting lifeguard places the board vertically in the water against the wall, submerging the head end if possible, so the victim can be guided onto it."
+  },
+  { topic: "Extrication & Spinal",
+    q: "A victim with a suspected spinal injury is NOT breathing. What do you do?",
+    options: [
+      "Strap them onto a backboard with a head immobilizer before removing them, to protect the spine",
+      "Immediately extricate using a passive victim extrication — don't delay with backboarding",
+      "Leave the victim in the water and start ventilations from the side of the pool",
+      "Wait for EMS to arrive before removing the victim"
+    ],
+    correct: 1,
+    explain: "If the victim is not breathing, extricate immediately using passive victim extrication. Don't delay care by strapping them onto a backboard — they need ventilations and possibly CPR NOW."
+  },
+  { topic: "Extrication & Spinal",
+    q: "The head splint technique is used for:",
+    options: [
+      "Removing a victim from a slide",
+      "Manual in-line stabilization for victims in the water with suspected HNB injuries",
+      "Securing a victim's head to a backboard",
+      "Treating a closed head injury on land"
+    ],
+    correct: 1,
+    explain: "The head splint technique is used to perform manual in-line stabilization for victims in the water, using the victim's own arms to help hold the head in line with the body."
+  },
+
+  // ---- Consent ----
+  { topic: "Consent",
+    q: "Which is NOT one of the steps to obtain consent?",
+    options: [
+      "State your name",
+      "State your level of training",
+      "Ask the victim if they have insurance",
+      "Ask if you may help"
+    ],
+    correct: 2,
+    explain: "The 5 steps: (1) State your name, (2) State your level of training, (3) Ask if you may help, (4) Explain you'd like to assess, (5) Explain what you plan to do. Insurance is never part of consent."
+  },
+  { topic: "Consent",
+    q: "Implied consent applies when:",
+    options: [
+      "A victim says \"Don't touch me\"",
+      "A victim is unresponsive, OR a minor needs care and no parent/guardian is present",
+      "A bystander tells you to help",
+      "A victim has only minor injuries"
+    ],
+    correct: 1,
+    explain: "Implied consent applies to unresponsive, confused, or seriously injured/ill victims, AND to minors who need emergency care when a parent/guardian is not present."
+  },
+
+  // ---- Primary Assessment ----
+  { topic: "Primary Assessment",
+    q: "When checking for breathing and pulse during a primary assessment, you should check for:",
+    options: [
+      "Exactly 5 seconds",
+      "At least 5 seconds, no more than 10 seconds",
+      "Exactly 10 seconds",
+      "30 seconds to be sure"
+    ],
+    correct: 1,
+    explain: "Check breathing and pulse simultaneously for AT LEAST 5 seconds but NO MORE THAN 10 seconds. If you can't find a pulse in 10 seconds, assume none and begin care."
+  },
+  { topic: "Primary Assessment",
+    q: "Where do you check for a pulse on an INFANT?",
+    options: [
+      "Carotid artery (neck)",
+      "Radial artery (wrist)",
+      "Brachial artery (inside of upper arm)",
+      "Femoral artery (groin)"
+    ],
+    correct: 2,
+    explain: "For an infant, feel for the brachial pulse on the inside of the upper arm between the elbow and shoulder. Adults and children use the carotid (neck)."
+  },
+  { topic: "Primary Assessment",
+    q: "Where do you check for a pulse on an adult or child?",
+    options: [
+      "Brachial artery (upper arm)",
+      "Carotid artery (in the groove at the side of the neck)",
+      "Radial artery (wrist)",
+      "Temporal artery (temple)"
+    ],
+    correct: 1,
+    explain: "Adult/Child: carotid artery — two fingers in the middle of the throat, then slide into the groove at the side of the neck closest to you. Press lightly."
+  },
+  { topic: "Primary Assessment",
+    q: "You have just rescued an unresponsive drowning victim. They are not breathing and have no pulse. You should begin care with:",
+    options: [
+      "30 chest compressions",
+      "2 ventilations, then chest compressions",
+      "5 back blows",
+      "Just chest compressions, no ventilations"
+    ],
+    correct: 1,
+    explain: "Water rescue (drowning) → begin with 2 ventilations, then chest compressions. Land/cardiac rescue → begin with chest compressions."
+  },
+
+  // ---- Ventilations ----
+  { topic: "Ventilations & Airway",
+    q: "What is the ventilation rate for an ADULT in respiratory arrest (not breathing, has a pulse)?",
+    options: [
+      "1 ventilation every 2-3 seconds",
+      "1 ventilation every 5-6 seconds",
+      "2 ventilations every 5 seconds",
+      "1 ventilation every 10 seconds"
+    ],
+    correct: 1,
+    explain: "Adult: 1 ventilation every 5-6 seconds (about every 6 seconds)."
+  },
+  { topic: "Ventilations & Airway",
+    q: "What is the ventilation rate for a CHILD or INFANT in respiratory arrest?",
+    options: [
+      "1 ventilation every 5-6 seconds",
+      "1 ventilation every 2-3 seconds",
+      "2 ventilations every 5 seconds",
+      "1 ventilation every 10 seconds"
+    ],
+    correct: 1,
+    explain: "Child and Infant: 1 ventilation every 2-3 seconds (the manual specifies about every 3 seconds)."
+  },
+  { topic: "Ventilations & Airway",
+    q: "What is the correct head position when giving ventilations to an INFANT?",
+    options: ["Past neutral (tilted back)", "Slightly past neutral", "Neutral position", "Flexed forward"],
+    correct: 2,
+    explain: "Infant = neutral. Child = slightly past neutral. Adult = past neutral."
+  },
+  { topic: "Ventilations & Airway",
+    q: "When should you use the jaw-thrust (WITHOUT head extension) maneuver?",
+    options: [
+      "Whenever giving ventilations to any victim",
+      "Only on infants",
+      "When you suspect a head, neck, or spinal injury",
+      "Only when using a BVM"
+    ],
+    correct: 2,
+    explain: "Use the modified jaw-thrust (without head extension) when a head/neck/spinal injury is suspected. It opens the airway without moving the spine."
+  },
+  { topic: "Ventilations & Airway",
+    q: "How many rescuers are required to operate a Bag-Valve-Mask (BVM)?",
+    options: ["One", "Two", "Three", "Four"],
+    correct: 1,
+    explain: "BVMs require two rescuers: one Airway Manager (positions and seals the mask), one Ventilator (squeezes the bag). One rescuer can't effectively maintain the seal and squeeze the bag."
+  },
+
+  // ---- Choking ----
+  { topic: "Choking",
+    q: "A responsive adult is choking and cannot cough, speak, or breathe. After obtaining consent, you should:",
+    options: [
+      "Give 5 chest thrusts and 5 abdominal thrusts, alternating",
+      "Give 5 back blows and 5 abdominal thrusts, alternating",
+      "Give 5 back blows and 5 chest thrusts, alternating",
+      "Begin CPR immediately"
+    ],
+    correct: 1,
+    explain: "Adult and Child: 5 back blows + 5 abdominal thrusts, alternating until the object is dislodged or victim becomes unresponsive."
+  },
+  { topic: "Choking",
+    q: "A responsive INFANT is choking. The correct care is:",
+    options: [
+      "5 abdominal thrusts and 5 back blows",
+      "5 back blows and 5 abdominal thrusts",
+      "5 back blows and 5 chest thrusts",
+      "Begin CPR immediately"
+    ],
+    correct: 2,
+    explain: "Infant choking: 5 back blows (face-down on forearm, head lower than body) followed by 5 chest thrusts (NOT abdominal thrusts). Two or three fingers on the center of the chest just below the nipple line."
+  },
+
+  // ---- CPR ----
+  { topic: "CPR",
+    q: "What is the compression-to-ventilation ratio for SINGLE-rescuer CPR on a child?",
+    options: ["30:2", "15:2", "30:1", "5:1"],
+    correct: 0,
+    explain: "Single-rescuer CPR is 30:2 for all ages (adult, child, infant). The ratio only changes for TWO-rescuer CPR on a child or infant (15:2)."
+  },
+  { topic: "CPR",
+    q: "What is the compression-to-ventilation ratio for TWO-rescuer CPR on an infant?",
+    options: ["30:2", "15:2", "10:1", "5:1"],
+    correct: 1,
+    explain: "Two-rescuer CPR on a child or infant uses 15:2 — more frequent ventilations are needed for the smaller victim."
+  },
+  { topic: "CPR",
+    q: "What is the correct compression depth for an ADULT during CPR?",
+    options: [
+      "At least 1 inch, no more than 1.5 inches",
+      "About 1½ inches",
+      "About 2 inches",
+      "At least 2 inches (try not to exceed 2.4 inches)"
+    ],
+    correct: 3,
+    explain: "Adult: at least 2 inches (don't exceed 2.4 inches with a feedback device). Child: about 2 inches. Infant: about 1½ inches."
+  },
+  { topic: "CPR",
+    q: "What is the correct compression depth for an INFANT?",
+    options: ["About ½ inch", "About 1 inch", "About 1½ inches", "At least 2 inches"],
+    correct: 2,
+    explain: "Infant compression depth is about 1½ inches. The encircling thumbs technique is used during two-rescuer CPR."
+  },
+  { topic: "CPR",
+    q: "What is the correct rate of chest compressions?",
+    options: [
+      "60-80 per minute",
+      "80-100 per minute",
+      "100-120 per minute",
+      "At least 150 per minute"
+    ],
+    correct: 2,
+    explain: "Between 100 and 120 compressions per minute for all victims."
+  },
+  { topic: "CPR",
+    q: "During two-rescuer CPR on an INFANT, what technique is used for chest compressions?",
+    options: [
+      "Heel of one hand on the chest",
+      "Both hands stacked on the lower sternum",
+      "Encircling thumbs technique — two thumbs side-by-side just below the nipple line, fingers wrapping the chest",
+      "One finger on the breastbone"
+    ],
+    correct: 2,
+    explain: "Two-rescuer infant CPR uses the encircling thumbs technique: thumbs side-by-side just below the nipple line with the fingers wrapping the chest and supporting the back."
+  },
+  { topic: "CPR",
+    q: "Rescuers performing CPR should switch positions:",
+    options: [
+      "Every 30 seconds",
+      "Every 2 minutes (or 5 cycles of CPR, or when the AED is analyzing)",
+      "Every 5 minutes",
+      "Only when one rescuer is exhausted"
+    ],
+    correct: 1,
+    explain: "Switch every 2 minutes (or 5 cycles, or as the AED analyzes) to prevent rescuer fatigue. The switch itself should take less than 10 seconds — any interruption to compressions should be kept under 10 seconds."
+  },
+
+  // ---- AED ----
+  { topic: "AED",
+    q: "Where should you place AED pads on an INFANT?",
+    options: [
+      "One pad on upper-right chest, one on lower-left chest",
+      "Both pads on the chest",
+      "Always one pad on the chest and one on the back",
+      "One pad on the head and one on the chest"
+    ],
+    correct: 2,
+    explain: "For infants, ALWAYS place one pad on the chest and the other on the back. The chest is too small to fit both pads safely."
+  },
+  { topic: "AED",
+    q: "Can pediatric AED pads be used on an adult?",
+    options: [
+      "Yes, they work the same on any size victim",
+      "Yes, but only in emergencies",
+      "No — pediatric pads deliver too low an energy level and should NOT be used on adults",
+      "Only if the adult is under 18"
+    ],
+    correct: 2,
+    explain: "Pediatric pads deliver a lower energy level designed for kids under 8 or under 55 lbs. They should NOT be used on adults. (Adult pads CAN be used on a child/infant in a pinch if pediatric pads aren't available.)"
+  },
+
+  // ---- Cardiac Chain ----
+  { topic: "Cardiac Emergencies",
+    q: "Which of these is NOT one of the 5 links in the ADULT Cardiac Chain of Survival?",
+    options: [
+      "Recognition of cardiac arrest and activation of emergency response",
+      "Early CPR",
+      "Injury prevention and safety",
+      "Early defibrillation"
+    ],
+    correct: 2,
+    explain: "\"Injury prevention and safety\" is the first link in the PEDIATRIC chain. The adult chain starts with Recognition and Activation of the emergency response, then Early CPR, Early Defibrillation, Advanced Life Support, and Integrated Post-Cardiac Arrest Care."
+  },
+  { topic: "Cardiac Emergencies",
+    q: "Which of these is a sign of a heart attack?",
+    options: [
+      "Chest pain or pressure lasting longer than 3-5 minutes",
+      "Sweating, especially on the face",
+      "Pale or ashen skin, nausea, or shortness of breath",
+      "All of the above"
+    ],
+    correct: 3,
+    explain: "All of these are signs of a heart attack. Other signs include dizziness, fatigue, and pain spreading to shoulder, arm, neck, jaw, or back. Women, older adults, and diabetics often have less typical signs."
+  },
+
+  // ---- SAMPLE ----
+  { topic: "Secondary Assessment",
+    q: "In the SAMPLE history, what does the M stand for?",
+    options: ["Medical history", "Medications", "Movement", "Mechanism of injury"],
+    correct: 1,
+    explain: "M = Medications (prescription, OTC, taken today as prescribed?). S=Signs/Symptoms, A=Allergies, M=Medications, P=Pertinent past medical history, L=Last oral intake, E=Events leading to incident."
+  },
+
+  // ---- First Aid ----
+  { topic: "First Aid",
+    q: "How long should you cool a burn with cool or cold tap water?",
+    options: ["At least 1 minute", "At least 5 minutes", "At least 10 minutes", "At least 30 minutes"],
+    correct: 2,
+    explain: "Cool burns with large amounts of cool/cold tap water for at least 10 minutes. (Chemical burns get at least 20 minutes; chemicals in the eye flush for at least 15 minutes.)"
+  },
+  { topic: "First Aid",
+    q: "A diabetic patron is awake and able to swallow, but feels weak and confused. What should you do?",
+    options: [
+      "Give them water and tell them to rest",
+      "Give them 15-20 grams of sugar (glucose tablets, juice, candy)",
+      "Begin CPR",
+      "Have them lie flat and elevate their legs"
+    ],
+    correct: 1,
+    explain: "If a diabetic person is awake and can swallow safely, give them 15-20 grams of sugar. Sugar helps quickly with low blood sugar; for high blood sugar it won't cause immediate harm."
+  },
+  { topic: "First Aid",
+    q: "Which is the most severe heat-related illness?",
+    options: ["Heat cramps", "Heat exhaustion", "Heat stroke", "Sunburn"],
+    correct: 2,
+    explain: "Heat stroke is LIFE-THREATENING — the body's systems are overwhelmed and stop functioning. Signs include changes in LOC, hot skin, seizures, vomiting, lack of sweating. The progression is: cramps → exhaustion → stroke."
+  },
+  { topic: "First Aid",
+    q: "Which is NOT one of the four types of musculoskeletal injury?",
+    options: ["Fracture", "Sprain", "Dislocation", "Bruise"],
+    correct: 3,
+    explain: "The four musculoskeletal injuries are: Fracture, Dislocation, Sprain (ligaments), and Strain (muscles/tendons). A bruise is a closed soft-tissue wound."
+  },
+
+  // ---- Glove Removal ----
+  { topic: "First Aid",
+    q: "The key rule when removing disposable gloves is:",
+    options: [
+      "Pull them off as fast as possible",
+      "Use scissors to cut them off if soiled",
+      "Never touch your bare skin with the outside of either glove",
+      "Always wash gloves before removing them"
+    ],
+    correct: 2,
+    explain: "Never touch your bare skin with the OUTSIDE of either glove. Pinch the palm, pull the first glove inside-out, slip two fingers under the second glove from the inside, pull it off so the first glove ends up contained inside."
+  },
+];
+
+// ====================== APP LOGIC ======================
+const TOPICS = ["All Topics", ...Array.from(new Set(QUESTIONS.map(q => q.topic)))];
+
+let state = {
+  selectedTopic: "All Topics",
+  pool: [],         // questions for the current quiz
+  idx: 0,
+  answers: [],      // {qIdx, selected, correct}
+  answered: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const screens = {
+  intro: $("intro"),
+  quiz: $("quiz"),
+  results: $("results"),
+};
+
+function showScreen(name) {
+  Object.entries(screens).forEach(([k, el]) => {
+    el.classList.toggle("hidden", k !== name);
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function renderTopicGrid() {
+  const grid = $("topicGrid");
+  grid.innerHTML = "";
+  TOPICS.forEach(topic => {
+    const count = topic === "All Topics"
+      ? QUESTIONS.length
+      : QUESTIONS.filter(q => q.topic === topic).length;
+    const btn = document.createElement("button");
+    btn.className = "topic-btn" + (topic === state.selectedTopic ? " selected" : "");
+    btn.innerHTML = `<span>${topic}</span><span class="count">${count}</span>`;
+    btn.onclick = () => {
+      state.selectedTopic = topic;
+      renderTopicGrid();
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function startQuiz() {
+  const filtered = state.selectedTopic === "All Topics"
+    ? QUESTIONS.slice()
+    : QUESTIONS.filter(q => q.topic === state.selectedTopic);
+  const max = state.selectedTopic === "All Topics" ? 15 : filtered.length;
+  state.pool = shuffle(filtered).slice(0, max);
+  state.idx = 0;
+  state.answers = [];
+  state.answered = false;
+  showScreen("quiz");
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = state.pool[state.idx];
+  state.answered = false;
+  $("topicChip").textContent = q.topic;
+  $("question").textContent = q.q;
+  $("progressText").textContent = `${state.idx + 1} of ${state.pool.length}`;
+  $("progressFill").style.width = `${((state.idx) / state.pool.length) * 100}%`;
+  $("feedback").classList.add("hidden");
+  $("nextBtn").classList.add("hidden");
+
+  const optsDiv = $("options");
+  optsDiv.innerHTML = "";
+  // Shuffle option order so the correct answer position is randomized per question
+  const order = shuffle(q.options.map((_, i) => i));
+  q._order = order; // keep ref for grading
+  order.forEach((origIdx, displayIdx) => {
+    const btn = document.createElement("button");
+    btn.className = "option";
+    btn.innerHTML = `
+      <span class="option-letter">${String.fromCharCode(65 + displayIdx)}</span>
+      <span class="option-text">${q.options[origIdx]}</span>
+    `;
+    btn.onclick = () => selectOption(origIdx, btn);
+    optsDiv.appendChild(btn);
+  });
+}
+
+function selectOption(origIdx, btnEl) {
+  if (state.answered) return;
+  state.answered = true;
+  const q = state.pool[state.idx];
+  const correct = origIdx === q.correct;
+  state.answers.push({ qIdx: state.idx, selected: origIdx, correct });
+
+  // Disable all options and mark correct/incorrect
+  Array.from($("options").children).forEach((node, displayIdx) => {
+    const ord = q._order[displayIdx];
+    node.classList.add("disabled");
+    node.onclick = null;
+    if (ord === q.correct) node.classList.add("correct");
+    else if (ord === origIdx) node.classList.add("incorrect");
+  });
+
+  const fb = $("feedback");
+  fb.classList.remove("hidden");
+  fb.classList.toggle("correct", correct);
+  fb.classList.toggle("incorrect", !correct);
+  fb.innerHTML = `
+    <div class="feedback-title">${correct ? "✓ Correct" : "✗ Not quite"}</div>
+    <div>${q.explain}</div>
+  `;
+
+  $("progressFill").style.width = `${((state.idx + 1) / state.pool.length) * 100}%`;
+  $("nextBtn").classList.remove("hidden");
+  $("nextBtn").textContent = state.idx === state.pool.length - 1 ? "See Results →" : "Next →";
+}
+
+function nextQuestion() {
+  if (state.idx < state.pool.length - 1) {
+    state.idx++;
+    renderQuestion();
+  } else {
+    showResults();
+  }
+}
+
+function showResults() {
+  const correctCount = state.answers.filter(a => a.correct).length;
+  const total = state.pool.length;
+  const pct = Math.round((correctCount / total) * 100);
+  $("scoreNum").textContent = correctCount;
+  $("scoreTotal").textContent = total;
+  $("scorePct").textContent = pct;
+
+  const grade = $("scoreGrade");
+  if (pct >= 80) {
+    grade.textContent = "Passing (80%+) ✓";
+    grade.className = "score-grade grade-pass";
+  } else {
+    grade.textContent = `Needs review (need 80%)`;
+    grade.className = "score-grade grade-fail";
+  }
+
+  // Review missed questions
+  const missed = state.answers.filter(a => !a.correct);
+  const reviewSection = $("reviewSection");
+  const reviewList = $("reviewList");
+  reviewList.innerHTML = "";
+  if (missed.length === 0) {
+    reviewSection.classList.add("hidden");
+  } else {
+    reviewSection.classList.remove("hidden");
+    missed.forEach(a => {
+      const q = state.pool[a.qIdx];
+      const item = document.createElement("div");
+      item.className = "review-item";
+      item.innerHTML = `
+        <div class="review-q">${q.q}</div>
+        <div class="review-meta">
+          <div><span class="your">Your answer:</span> ${q.options[a.selected]}</div>
+          <div><span class="correct">Correct answer:</span> ${q.options[q.correct]}</div>
+          <div style="margin-top:8px;color:var(--text);font-size:13px"><strong>Why:</strong> ${q.explain}</div>
+        </div>
+      `;
+      reviewList.appendChild(item);
+    });
+  }
+
+  showScreen("results");
+}
+
+// Event listeners
+$("startBtn").onclick = startQuiz;
+$("nextBtn").onclick = nextQuestion;
+$("retryBtn").onclick = startQuiz;
+$("newQuizBtn").onclick = () => showScreen("intro");
+
+// Init
+renderTopicGrid();
+</script>
+</body>
+</html>
