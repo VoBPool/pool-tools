@@ -47,6 +47,21 @@
         .tog{background:none;border:1px solid #14532D;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:700;font-size:11px;letter-spacing:2px;padding:7px 16px;transition:all .2s;}
       
   </style>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+    try {
+      const _app = firebase.initializeApp({
+        apiKey:"AIzaSyAMb0KCrD9D4tXsjTTnA6VsuTtZOECTnPU",
+        authDomain:"pools-tools.firebaseapp.com",
+        projectId:"pools-tools",
+        storageBucket:"pools-tools.firebasestorage.app",
+        messagingSenderId:"584050444786",
+        appId:"1:584050444786:web:098a4872f7acb899d0c36b"
+      });
+      window._poolDb = firebase.firestore();
+    } catch(e) { console.warn("Firebase init failed:", e); }
+  </script>
 </head>
 <body>
   <div id="root"></div>
@@ -60,6 +75,27 @@
       list: async (pfx) => { try { const ks=Object.keys(localStorage).filter(k=>!pfx||k.startsWith(pfx)); return {keys:ks}; } catch(e){return {keys:[]};} },
     };
 "use strict";
+// ── Firebase helpers ──
+const FB_CONFIG = {
+    apiKey: "AIzaSyAMb0KCrD9D4tXsjTTnA6VsuTtZOECTnPU",
+    authDomain: "pools-tools.firebaseapp.com",
+    projectId: "pools-tools",
+    storageBucket: "pools-tools.firebasestorage.app",
+    messagingSenderId: "584050444786",
+    appId: "1:584050444786:web:098a4872f7acb899d0c36b"
+};
+async function fbGet(key) {
+    try {
+        const db = window._poolDb;
+        if (!db)
+            return null;
+        const snap = await db.collection("tracker-schedule").doc(key).get();
+        return snap.exists ? snap.data() : null;
+    }
+    catch (e) {
+        return null;
+    }
+}
 const TEAM_COLORS = { A: "#00C2E0", B: "#FF6B35", C: "#2ECC71", D: "#F1C40F" };
 const TEAM_DARK = { A: "#002A36", B: "#2E1200", C: "#003318", D: "#2E2700" };
 const BOOM_COLORS = { E: "#E879F9", F: "#F43F5E", G: "#FB923C" };
@@ -325,90 +361,62 @@ function App() {
     const [minsView, setMinsView] = useState("fullday");
     const [slotModes, setSlotModes] = useState({});
     const [plannerInfo, setPlannerInfo] = useState(null); // {pushedAt, date, hasSplit}
-    // Load guard data from planner on mount (uses today by default)
-    useEffect(() => {
-        (async () => {
-            try {
-                const today = new Date().toISOString().slice(0, 10);
-                const r = await storage.get("tracker-day-" + today);
-                if (r) {
-                    const d = JSON.parse(r.value);
-                    if (d.guards) {
-                        setGuards(prev => {
-                            const next = Object.assign({}, prev);
-                            Object.entries(d.guards).forEach(([team, segs]) => {
-                                if (next[team]) {
-                                    next[team] = next[team].map((g, i) => {
-                                        const seg = segs[i];
-                                        if (!seg)
-                                            return g;
-                                        return { name: (seg[0] && seg[0].name) || "", start: (seg[0] && seg[0].start) || g.start, end: (seg[0] && seg[0].end) || g.end };
-                                    });
-                                }
-                            });
-                            return next;
-                        });
-                        // Store ALL segments for split shift support
-                        setSplitSegs(() => {
-                            const ss = {};
-                            Object.entries(d.guards).forEach(([team, segs]) => {
-                                segs.forEach((posSegs, i) => {
-                                    if (posSegs && posSegs.length > 1)
-                                        ss[team + "_" + i] = posSegs;
-                                });
-                            });
-                            return ss;
-                        });
-                    }
-                    if (d.boomGuards) {
-                        setBoomGuards(prev => {
-                            const next = Object.assign({}, prev);
-                            Object.entries(d.boomGuards).forEach(([g, segs]) => {
-                                if (next[g] && segs[0])
-                                    next[g] = { name: segs[0].name || "", start: segs[0].start || next[g].start, end: segs[0].end || next[g].end };
-                            });
-                            return next;
-                        });
-                    }
-                    setPlannerInfo({ pushedAt: d.pushedAt, date: d.date, hasSplit: d.hasSplit });
-                }
+    // Shared function to apply planner/Firebase data to state
+    function applyScheduleData(d) {
+        try {
+            if (d.guards) {
+                setGuards(prev => {
+                    const next = Object.assign({}, prev);
+                    Object.entries(d.guards).forEach(([team, segs]) => {
+                        if (next[team])
+                            next[team] = next[team].map((g, i) => { const s = segs[i]; return s ? { name: (s[0] && s[0].name) || "", start: (s[0] && s[0].start) || g.start, end: (s[0] && s[0].end) || g.end } : g; });
+                    });
+                    return next;
+                });
+                setSplitSegs(() => { const ss = {}; Object.entries(d.guards).forEach(([team, segs]) => { segs.forEach((ps, i) => { if (ps && ps.length > 1)
+                    ss[team + "_" + i] = ps; }); }); return ss; });
             }
-            catch (e) { }
-        })();
-    }, []);
-    // Auto-load planner data when preview date changes
+            if (d.boomGuards)
+                setBoomGuards(prev => { const next = Object.assign({}, prev); Object.entries(d.boomGuards).forEach(([g, segs]) => { if (next[g] && segs[0])
+                    next[g] = Object.assign(Object.assign({}, next[g]), { name: segs[0].name || "", start: segs[0].start || next[g].start, end: segs[0].end || next[g].end }); }); return next; });
+            setPlannerInfo({ date: d.date, pushedAt: d.pushedAt, hasSplit: d.hasSplit || false });
+        }
+        catch (e) { }
+    }
+    // Load schedule: Firebase first, localStorage fallback. Runs on mount + date change.
     useEffect(() => {
         (async () => {
-            const r = await storage.get("tracker-day-" + previewDate);
-            if (r) {
+            let data = await fbGet(previewDate);
+            if (!data) {
                 try {
-                    const d = JSON.parse(r.value);
-                    if (d.guards) {
-                        setGuards(prev => {
-                            const next = Object.assign({}, prev);
-                            Object.entries(d.guards).forEach(([team, segs]) => {
-                                if (next[team])
-                                    next[team] = next[team].map((g, i) => { const s = segs[i]; return s ? { name: (s[0] && s[0].name) || "", start: (s[0] && s[0].start) || g.start, end: (s[0] && s[0].end) || g.end } : g; });
-                            });
-                            return next;
-                        });
-                        setSplitSegs(() => { const ss = {}; Object.entries(d.guards).forEach(([team, segs]) => { segs.forEach((ps, i) => { if (ps && ps.length > 1)
-                            ss[team + "_" + i] = ps; }); }); return ss; });
-                    }
-                    if (d.boomGuards)
-                        setBoomGuards(prev => { const next = Object.assign({}, prev); Object.entries(d.boomGuards).forEach(([g, segs]) => { if (next[g] && segs[0])
-                            next[g] = Object.assign(Object.assign({}, next[g]), { name: segs[0].name || "", start: segs[0].start || next[g].start, end: segs[0].end || next[g].end }); }); return next; });
-                    setPlannerInfo({ date: d.date, pushedAt: d.pushedAt, hasSplit: d.hasSplit || false });
+                    const r = await storage.get("tracker-day-" + previewDate);
+                    if (r)
+                        data = JSON.parse(r.value);
                 }
                 catch (e) { }
             }
-            else {
+            if (data)
+                applyScheduleData(data);
+            else
                 setPlannerInfo(null);
-            }
         })();
+    }, [previewDate]);
+    // Auto-refresh from Firebase every 60 seconds
+    useEffect(() => {
+        const t = setInterval(async () => {
+            const data = await fbGet(previewDate);
+            if (data)
+                applyScheduleData(data);
+        }, 60000);
+        return () => clearInterval(t);
     }, [previewDate]);
     async function reloadFromPlanner() {
         try {
+            const fbData = await fbGet(previewDate);
+            if (fbData) {
+                applyScheduleData(fbData);
+                return;
+            }
             const r = await storage.get("tracker-day-" + previewDate);
             if (r) {
                 const d = JSON.parse(r.value);
