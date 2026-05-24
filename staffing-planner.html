@@ -53,6 +53,21 @@
         .slotcard:last-child{margin-bottom:0;}
       
   </style>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+    try {
+      const _app = firebase.initializeApp({
+        apiKey:"AIzaSyAMb0KCrD9D4tXsjTTnA6VsuTtZOECTnPU",
+        authDomain:"pools-tools.firebaseapp.com",
+        projectId:"pools-tools",
+        storageBucket:"pools-tools.firebasestorage.app",
+        messagingSenderId:"584050444786",
+        appId:"1:584050444786:web:098a4872f7acb899d0c36b"
+      });
+      window._poolDb = firebase.firestore();
+    } catch(e) { console.warn("Firebase init failed:", e); }
+  </script>
 </head>
 <body>
   <div id="root"></div>
@@ -67,6 +82,18 @@
     };
 "use strict";
 // ===================== CONSTANTS =====================
+// ── Firebase helpers ──
+async function fbSet(key, data) {
+    try {
+        const db = window._poolDb;
+        if (!db)
+            return;
+        await db.collection("tracker-schedule").doc(key).set(data);
+    }
+    catch (e) {
+        console.warn("Firebase write failed:", e);
+    }
+}
 const TEAM_COLORS = { A: "#00C2E0", B: "#FF6B35", C: "#2ECC71", D: "#F1C40F" };
 const ROLE_META = {
     guard: { label: "Lifeguard", color: "#00C2E0", dark: "#002A36" },
@@ -790,6 +817,7 @@ function App() {
                 hasSplit,
             };
             await storage.set("tracker-day-" + ds, JSON.stringify(payload));
+            await fbSet(ds, payload);
             setPushStatus("ok");
             setTimeout(() => setPushStatus(null), 3000);
         }
