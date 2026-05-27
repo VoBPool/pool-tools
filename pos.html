@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -341,6 +340,16 @@ body{display:flex;flex-direction:column}
 .margin-bar-wrap{height:6px;background:var(--light);border-radius:4px;overflow:hidden;margin-top:4px;}
 .margin-bar-fill{height:100%;border-radius:4px;}
 
+.rpt-item-row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:12px;cursor:pointer;transition:background .1s;touch-action:manipulation;}
+.rpt-item-row:active,.rpt-item-row.drilling{background:#eff6ff;}
+.rpt-item-emoji{font-size:24px;flex-shrink:0;width:32px;text-align:center;}
+.rpt-item-info{flex:1;min-width:0;}
+.rpt-item-name{font-weight:800;font-size:14px;color:var(--text);}
+.rpt-item-meta{font-size:11px;color:var(--faint);font-weight:600;margin-top:1px;}
+.rpt-item-bar-wrap{height:4px;background:var(--light);border-radius:3px;overflow:hidden;margin-top:5px;}
+.rpt-item-bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--teal));border-radius:3px;}
+.rpt-item-rev{font-weight:900;font-size:14px;color:var(--green);flex-shrink:0;}
+.rpt-drill{background:#f0f9ff;border-radius:12px;padding:12px;margin:0 4px 8px;border-left:3px solid var(--blue);}
 .rpt-section{background:var(--white);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
 .rpt-title{font-family:'Paytone One';font-size:15px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
 .rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;}
@@ -2102,6 +2111,21 @@ function rptOrders(){
   return orders;
 }
 
+// ── Report drilldown state ─────────────────────────────
+let _drillItem=null;
+
+function setRptRange(r){
+  rptRange=r;
+  _drillItem=null;
+  document.querySelectorAll('.rpt-rb').forEach(b=>b.classList.toggle('active',b.dataset.r===r));
+  renderReports();
+}
+
+function drillItem(itemKey){
+  _drillItem=_drillItem===itemKey?null:itemKey;
+  renderReports();
+}
+
 function renderReports(){
   const el=document.getElementById('rpt-container');
   const ord=rptOrders();
@@ -2115,83 +2139,128 @@ function renderReports(){
     return;
   }
 
+  const tz='America/New_York';
   const totalRev=ord.reduce((s,o)=>s+o.total,0);
   const avgOrder=totalRev/ord.length;
-  const totalSaved=ord.reduce((s,o)=>s+(o.totalSavings||0),0);
   const cashOrd=ord.filter(o=>o.payMethod==='cash');
   const cardOrd=ord.filter(o=>o.payMethod==='card');
   const cashRev=cashOrd.reduce((s,o)=>s+o.total,0);
   const cardRev=cardOrd.reduce((s,o)=>s+o.total,0);
-
-  // estimated profit across all orders
-  const estProfit=ord.reduce((s,o)=>{
-    return s+o.items.reduce((is,i)=>{
-      const p=gP(i.id);
-      if(!p)return is;
-      const cost=calcProductCost(p);
-      return is+(i.price-cost)*i.qty;
-    },0);
-  },0);
+  const empOrd=ord.filter(o=>o.isEmployee);
+  const empRev=empOrd.reduce((s,o)=>s+o.total,0);
   const hasAnyCost=products.some(p=>calcProductCost(p)>0);
+  const estProfit=ord.reduce((s,o)=>s+o.items.reduce((is,i)=>{const p=gP(i.id);if(!p)return is;const cost=calcProductCost(p);return is+(i.price-cost)*i.qty;},0),0);
+  const totalSaved=ord.reduce((s,o)=>s+(o.totalSavings||0),0);
 
+  // ── Build item map (name-based key for variant grouping option) ──
+  const itemMap={};
+  ord.forEach(o=>o.items.forEach(i=>{
+    const key=i.name;
+    if(!itemMap[key])itemMap[key]={name:i.name,emoji:i.emoji||'🍽️',id:i.id,qty:0,rev:0,orders:[],times:[]};
+    itemMap[key].qty+=i.qty;
+    itemMap[key].rev+=i.price*i.qty;
+    itemMap[key].orders.push(o);
+    itemMap[key].times.push(new Date(o.timestamp));
+  }));
+  const allItems=Object.values(itemMap).sort((a,b)=>b.qty-a.qty);
+
+  // ── 30-min slot map ──
+  const slotMap={};
+  for(let h=0;h<24;h++)for(let m=0;m<2;m++){const k=`${h}:${m}`;slotMap[k]={h,m,label:'',rev:0,count:0};}
+  ord.forEach(o=>{
+    const d=new Date(o.timestamp);
+    const h=parseInt(d.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}))%24;
+    const m=d.toLocaleString('en-US',{timeZone:tz,minute:'numeric'})<30?0:1;
+    slotMap[`${h}:${m}`].rev+=o.total;
+    slotMap[`${h}:${m}`].count++;
+  });
+  const activeSlots=Object.values(slotMap).filter(s=>s.count>0);
+  const minSlotH=activeSlots.length?Math.max(0,Math.min(...activeSlots.map(s=>s.h))-1):9;
+  const maxSlotH=activeSlots.length?Math.min(23,Math.max(...activeSlots.map(s=>s.h))+1):20;
+  const visibleSlots=Object.values(slotMap).filter(s=>s.h>=minSlotH&&s.h<=maxSlotH);
+  const maxSlot=Math.max(1,...visibleSlots.map(s=>s.count));
+  const fmHr=h=>{const n=parseInt(h);const ampm=n<12?'AM':'PM';const hr=n===0?12:n>12?n-12:n;return`${hr}${ampm}`;};
+  const fmSlot=(h,m)=>`${fmHr(h)}${m?'+30':'   '}`;
+
+  // ── Overview ──
   const summary=`<div class="rpt-section">
     <div class="rpt-title">📈 Overview</div>
     <div class="rpt-grid">
-      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--green)">${fm(totalRev)}</div><div class="rpt-stat-lbl">Total Revenue</div></div>
+      <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--green)">${fm(totalRev)}</div><div class="rpt-stat-lbl">Revenue</div></div>
       <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--blue)">${ord.length}</div><div class="rpt-stat-lbl">Orders</div></div>
       <div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--purple)">${fm(avgOrder)}</div><div class="rpt-stat-lbl">Avg Order</div></div>
-      ${hasAnyCost?`<div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--teal)">${fm(estProfit)}</div><div class="rpt-stat-lbl">Est. Profit</div></div>`:`<div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--orange)">${fm(totalSaved)}</div><div class="rpt-stat-lbl">Combo Savings Given</div></div>`}
+      ${hasAnyCost
+        ?`<div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--teal)">${fm(estProfit)}</div><div class="rpt-stat-lbl">Est. Profit</div></div>`
+        :`<div class="rpt-stat"><div class="rpt-stat-val" style="color:var(--orange)">${fm(totalSaved)}</div><div class="rpt-stat-lbl">Combo Savings</div></div>`}
     </div>
+    ${empOrd.length?`<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:12px;font-size:13px;font-weight:700;color:var(--purple)">👤 ${empOrd.length} employee order${empOrd.length>1?'s':''} · ${fm(empRev)} total</div>`:''}
   </div>`;
 
-  // ── Margins by product ──
-  const prodMargins=products.map(p=>{
-    const cost=calcProductCost(p);if(!cost)return null;
-    const pct=marginPct(p);
-    const soldQty=ord.reduce((s,o)=>s+o.items.filter(i=>i.id===p.id).reduce((is,i)=>is+i.qty,0),0);
-    return{name:p.name,emoji:p.emoji,price:p.price,cost,pct,profit:p.price-cost,soldQty,totalProfit:(p.price-cost)*soldQty};
-  }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
+  // ── Item breakdown (full table, tappable) ──
+  const maxItemQty=allItems[0]?.qty||1;
+  const itemRows=allItems.map(it=>{
+    const pct=Math.round(it.rev/totalRev*100);
+    const p=gP(it.id);
+    const cost=p?calcProductCost(p):0;
+    const marginP=cost&&it.rev?(((it.price||0)-cost)/((it.price||0)||1)*100).toFixed(0):null;
+    const peakHour=it.times.length?getPeakHour(it.times):null;
+    const isDrilling=_drillItem===it.name;
+    const drillHTML=isDrilling?buildItemDrill(it,ord,tz):'';
+    return`<div class="rpt-item-row${isDrilling?' drilling':''}" onclick="drillItem('${it.name.replace(/'/g,"\\'")}')">
+      <div class="rpt-item-emoji">${it.emoji}</div>
+      <div class="rpt-item-info">
+        <div class="rpt-item-name">${it.name}</div>
+        <div class="rpt-item-meta">${it.qty} sold · ${pct}% of rev${peakHour!==null?` · peaks ${fmHr(peakHour)}`:''}${marginP!==null?` · ${marginP}% margin`:''}</div>
+        <div class="rpt-item-bar-wrap"><div class="rpt-item-bar" style="width:${Math.round(it.qty/maxItemQty*100)}%"></div></div>
+      </div>
+      <div class="rpt-item-rev">${fm(it.rev)}</div>
+    </div>
+    ${drillHTML}`;
+  }).join('');
 
-  const marginsHTML=prodMargins.length?`<div class="rpt-section">
-    <div class="rpt-title">💰 Margins by Item</div>
-    ${prodMargins.map(m=>`<div class="rpt-bar-row">
-      <div class="rpt-bar-lbl">${m.emoji} ${m.name}</div>
-      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.min(100,m.pct||0)}%;background:${m.pct>=60?'var(--green)':m.pct>=30?'var(--yellow)':'var(--red)'}"></div></div>
-      <div class="rpt-bar-val" style="color:${m.pct>=60?'var(--green)':m.pct>=30?'#854d0e':'var(--red)'}">${m.pct}%</div>
-      <div class="rpt-bar-sub" style="width:60px;text-align:right">${fm(m.profit)}/ea</div>
-    </div>`).join('')}
-    <div style="font-size:11px;color:var(--faint);margin-top:8px;font-weight:600">🟢 60%+ · 🟡 30–60% · 🔴 under 30%</div>
+  const itemBreakdown=`<div class="rpt-section">
+    <div class="rpt-title">🛒 Item Breakdown <span style="font-size:11px;color:var(--faint);font-weight:600">tap for details</span></div>
+    ${itemRows}
+  </div>`;
+
+  // ── Slow movers ──
+  const soldNames=new Set(allItems.map(i=>i.name));
+  const slowMovers=products.filter(p=>!soldNames.has(p.name)&&effectiveStock(p)>0);
+  const slowHTML=slowMovers.length?`<div class="rpt-section">
+    <div class="rpt-title">🐢 Not Sold This Period</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${slowMovers.map(p=>`<span style="background:var(--light);color:var(--muted);border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700">${p.emoji} ${p.name}</span>`).join('')}
+    </div>
   </div>`:'';
 
-  const profitByItem=prodMargins.filter(m=>m.soldQty>0).sort((a,b)=>b.totalProfit-a.totalProfit);
-  const profitByItemHTML=profitByItem.length?`<div class="rpt-section">
-    <div class="rpt-title">🏦 Profit by Item <span style="font-size:11px;font-weight:600;color:var(--faint)">(this period)</span></div>
-    ${profitByItem.map((m,i)=>`<div class="rpt-bar-row">
-      <div class="rpt-bar-lbl">${m.emoji} ${m.name}</div>
-      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(m.totalProfit/profitByItem[0].totalProfit*100)}%;background:linear-gradient(90deg,var(--green),var(--teal))"></div></div>
-      <div class="rpt-bar-val" style="color:var(--green)">${fm(m.totalProfit)}</div>
-      <div class="rpt-bar-sub">${m.soldQty} sold</div>
-    </div>`).join('')}
-  </div>`:'';
-
-
-  // ── Top items by qty ──
-  const itemMap={};
-  ord.forEach(o=>o.items.forEach(i=>{
-    if(!itemMap[i.id])itemMap[i.id]={name:i.name,emoji:i.emoji,qty:0,rev:0};
-    itemMap[i.id].qty+=i.qty; itemMap[i.id].rev+=i.price*i.qty;
-  }));
-  const topItems=Object.values(itemMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
-  const maxQty=topItems[0]?.qty||1;
-  const topItemsHTML=`<div class="rpt-section">
-    <div class="rpt-title">🏆 Top Items</div>
-    ${topItems.map(it=>`<div class="rpt-bar-row">
-      <div class="rpt-bar-lbl">${it.emoji} ${it.name}</div>
-      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(it.qty/maxQty*100)}%;background:linear-gradient(90deg,var(--blue),var(--teal))"></div></div>
-      <div class="rpt-bar-val" style="color:var(--blue)">${it.qty} sold</div>
-      <div class="rpt-bar-sub">${fm(it.rev)}</div>
+  // ── 30-min peak chart ──
+  const peakHTML=`<div class="rpt-section">
+    <div class="rpt-title">⏰ 30-Min Peak Chart <span style="font-size:11px;font-weight:600;color:var(--faint)">(Eastern)</span></div>
+    ${visibleSlots.map(s=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl" style="width:72px;font-size:11px">${fmSlot(s.h,s.m)}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${s.count?Math.max(4,Math.round(s.count/maxSlot*100)):0}%;background:${s.count===maxSlot?'linear-gradient(90deg,var(--orange),var(--yellow))':'linear-gradient(90deg,#fbbf24,#fde68a)'}"></div></div>
+      <div class="rpt-bar-val" style="color:var(--orange)">${s.count?s.count+' ord':''}</div>
+      <div class="rpt-bar-sub">${s.rev?fm(s.rev):''}</div>
     </div>`).join('')}
   </div>`;
+
+  // ── Basket pairs ──
+  const pairMap={};
+  ord.forEach(o=>{
+    const names=[...new Set(o.items.map(i=>i.name))];
+    for(let a=0;a<names.length;a++)for(let b=a+1;b<names.length;b++){
+      const key=[names[a],names[b]].sort().join('|||');
+      pairMap[key]=(pairMap[key]||0)+1;
+    }
+  });
+  const topPairs=Object.entries(pairMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const pairsHTML=topPairs.length?`<div class="rpt-section">
+    <div class="rpt-title">🤝 Bought Together</div>
+    ${topPairs.map(([key,cnt])=>{const[a,b]=key.split('|||');return`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl" style="width:auto;flex:1;white-space:normal;font-size:12px">${a} + ${b}</div>
+      <div class="rpt-bar-val" style="color:var(--purple);min-width:50px;text-align:right">${cnt}×</div>
+    </div>`;}).join('')}
+  </div>`:'';
 
   // ── Category breakdown ──
   const catMap={};
@@ -2199,12 +2268,12 @@ function renderReports(){
     const p=products.find(x=>x.id===i.id);
     const cat=p?.category||'Other';
     if(!catMap[cat])catMap[cat]={rev:0,qty:0};
-    catMap[cat].rev+=i.price*i.qty; catMap[cat].qty+=i.qty;
+    catMap[cat].rev+=i.price*i.qty;catMap[cat].qty+=i.qty;
   }));
-  const catColors=['var(--blue)','var(--green)','var(--orange)','var(--purple)','var(--teal)','var(--yellow)'];
+  const catColors=['var(--blue)','var(--green)','var(--orange)','var(--purple)','var(--teal)'];
   const cats=Object.entries(catMap).sort((a,b)=>b[1].rev-a[1].rev);
   const maxCatRev=cats[0]?.[1].rev||1;
-  const catHTML=`<div class="rpt-section">
+  const catHTML=cats.length?`<div class="rpt-section">
     <div class="rpt-title">🗂️ By Category</div>
     ${cats.map(([cat,d],i)=>`<div class="rpt-bar-row">
       <div class="rpt-bar-lbl">${cat}</div>
@@ -2212,7 +2281,7 @@ function renderReports(){
       <div class="rpt-bar-val" style="color:${catColors[i%catColors.length]}">${fm(d.rev)}</div>
       <div class="rpt-bar-sub">${d.qty} sold</div>
     </div>`).join('')}
-  </div>`;
+  </div>`:'';
 
   // ── Payment split ──
   const cashPct=totalRev>0?Math.round(cashRev/totalRev*100):0;
@@ -2229,55 +2298,31 @@ function renderReports(){
     </div>
   </div>`;
 
-  // ── Peak hours ──
-  const hourMap={};
-  for(let h=0;h<24;h++)hourMap[h]={rev:0,count:0};
-  ord.forEach(o=>{
-    const h=new Date(o.timestamp).toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false});
-    const hr=parseInt(h)%24;
-    hourMap[hr].rev+=o.total; hourMap[hr].count++;
-  });
-  // Only show hours with activity, plus adjacent hours
-  const activeHours=Object.entries(hourMap).filter(([,d])=>d.count>0).map(([h])=>parseInt(h));
-  const minH=activeHours.length?Math.max(0,Math.min(...activeHours)-1):9;
-  const maxH=activeHours.length?Math.min(23,Math.max(...activeHours)+1):20;
-  const peakHours=Object.entries(hourMap).slice(minH,maxH+1);
-  const maxPeak=Math.max(1,...peakHours.map(([,d])=>d.count));
-  const fmHr=h=>{const n=parseInt(h);const ampm=n<12?'AM':'PM';const d=n===0?12:n>12?n-12:n;return d+(n===0||n===12?'':'')+ampm;};
-  const peakHTML=`<div class="rpt-section">
-    <div class="rpt-title">⏰ Peak Hours <span style="font-size:11px;font-weight:600;color:var(--faint)">(Eastern)</span></div>
-    ${peakHours.map(([h,d])=>`<div class="rpt-bar-row">
-      <div class="rpt-bar-lbl" style="width:70px">${fmHr(h)}</div>
-      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(d.count/maxPeak*100)}%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
-      <div class="rpt-bar-val" style="color:var(--orange)">${d.count} ord</div>
-      <div class="rpt-bar-sub">${fm(d.rev)}</div>
+  // ── Margins ──
+  const prodMargins=products.map(p=>{
+    const cost=calcProductCost(p);if(!cost)return null;
+    const pct=marginPct(p);
+    const soldQty=ord.reduce((s,o)=>s+o.items.filter(i=>i.id===p.id).reduce((is,i)=>is+i.qty,0),0);
+    return{name:p.name,emoji:p.emoji,price:p.price,cost,pct,profit:p.price-cost,soldQty,totalProfit:(p.price-cost)*soldQty};
+  }).filter(Boolean).sort((a,b)=>b.pct-a.pct);
+  const marginsHTML=prodMargins.length?`<div class="rpt-section">
+    <div class="rpt-title">💰 Margins by Item</div>
+    ${prodMargins.map(m=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${m.emoji} ${m.name}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.min(100,m.pct||0)}%;background:${m.pct>=60?'var(--green)':m.pct>=30?'var(--yellow)':'var(--red)'}"></div></div>
+      <div class="rpt-bar-val" style="color:${m.pct>=60?'var(--green)':m.pct>=30?'#854d0e':'var(--red)'}">${m.pct}%</div>
+      <div class="rpt-bar-sub" style="width:60px;text-align:right">${fm(m.profit)}/ea</div>
     </div>`).join('')}
-  </div>`;
-
-  // ── Combo performance ──
-  const comboMap={};
-  ord.forEach(o=>(o.discounts||[]).forEach(d=>{
-    if(!comboMap[d.name])comboMap[d.name]={name:d.name,count:0,saved:0};
-    comboMap[d.name].count++; comboMap[d.name].saved+=d.savings||0;
-  }));
-  const comboPerf=Object.values(comboMap).sort((a,b)=>b.count-a.count);
-  const comboHTML=comboPerf.length?`<div class="rpt-section">
-    <div class="rpt-title">🎁 Combo Performance</div>
-    ${comboPerf.map(c=>`<div class="rpt-bar-row">
-      <div class="rpt-bar-lbl">${c.name}</div>
-      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(c.count/comboPerf[0].count*100)}%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
-      <div class="rpt-bar-val" style="color:var(--orange)">${c.count}×</div>
-      <div class="rpt-bar-sub">${fm(c.saved)}</div>
-    </div>`).join('')}
+    <div style="font-size:11px;color:var(--faint);margin-top:8px;font-weight:600">🟢 60%+ · 🟡 30–60% · 🔴 under 30%</div>
   </div>`:'';
 
-  // ── Day over day (last 7 days) ──
+  // ── Day over day ──
   const dayRows=[];
   for(let i=6;i>=0;i--){
-    const d=new Date(); d.setDate(d.getDate()-i);
+    const d=new Date();d.setDate(d.getDate()-i);
     const label=i===0?'Today':i===1?'Yesterday':d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-    const ds=d.toLocaleDateString('en-US',{timeZone:'America/New_York'});
-    const dayOrd=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===ds);
+    const ds=d.toLocaleDateString('en-US',{timeZone:tz});
+    const dayOrd=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:tz})===ds);
     dayRows.push({label,rev:dayOrd.reduce((s,o)=>s+o.total,0),count:dayOrd.length});
   }
   const maxDay=Math.max(1,...dayRows.map(d=>d.rev));
@@ -2291,7 +2336,64 @@ function renderReports(){
     </div>`).join('')}
   </div>`;
 
-  el.innerHTML=rangeBar+summary+topItemsHTML+marginsHTML+profitByItemHTML+catHTML+payHTML+peakHTML+comboHTML+dodHTML;
+  // ── Combo performance ──
+  const comboMap={};
+  ord.forEach(o=>(o.discounts||[]).forEach(d=>{
+    if(!comboMap[d.name])comboMap[d.name]={name:d.name,count:0,saved:0};
+    comboMap[d.name].count++;comboMap[d.name].saved+=d.savings||0;
+  }));
+  const comboPerf=Object.values(comboMap).sort((a,b)=>b.count-a.count);
+  const comboHTML=comboPerf.length?`<div class="rpt-section">
+    <div class="rpt-title">🎁 Combo Performance</div>
+    ${comboPerf.map(c=>`<div class="rpt-bar-row">
+      <div class="rpt-bar-lbl">${c.name}</div>
+      <div class="rpt-bar-wrap"><div class="rpt-bar-fill" style="width:${Math.round(c.count/comboPerf[0].count*100)}%;background:linear-gradient(90deg,var(--orange),var(--yellow))"></div></div>
+      <div class="rpt-bar-val" style="color:var(--orange)">${c.count}×</div>
+      <div class="rpt-bar-sub">${fm(c.saved)}</div>
+    </div>`).join('')}
+  </div>`:'';
+
+  el.innerHTML=rangeBar+summary+itemBreakdown+slowHTML+peakHTML+pairsHTML+catHTML+payHTML+marginsHTML+dodHTML+comboHTML;
+}
+
+function getPeakHour(times){
+  const hmap={};
+  times.forEach(t=>{const h=parseInt(t.toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false}))%24;hmap[h]=(hmap[h]||0)+1;});
+  return parseInt(Object.entries(hmap).sort((a,b)=>b[1]-a[1])[0][0]);
+}
+
+function buildItemDrill(it,ord,tz){
+  // Orders that contained this item
+  const itemOrders=ord.filter(o=>o.items.some(i=>i.name===it.name)).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+  // 30-min slot breakdown for this item
+  const slots={};
+  itemOrders.forEach(o=>{
+    const d=new Date(o.timestamp);
+    const h=parseInt(d.toLocaleString('en-US',{timeZone:tz,hour:'numeric',hour12:false}))%24;
+    const m=parseInt(d.toLocaleString('en-US',{timeZone:tz,minute:'numeric'}))<30?0:1;
+    const key=`${h}:${m}`;
+    if(!slots[key])slots[key]={h,m,count:0};
+    slots[key].count+=o.items.filter(i=>i.name===it.name).reduce((s,i)=>s+i.qty,0);
+  });
+  const slotList=Object.values(slots).sort((a,b)=>a.h-b.h||a.m-b.m);
+  const maxSC=Math.max(1,...slotList.map(s=>s.count));
+  const fmHr=h=>{const n=parseInt(h);const ampm=n<12?'AM':'PM';const hr=n===0?12:n>12?n-12:n;return`${hr}${ampm}`;};
+  // Also ordered alongside
+  const alongside={};
+  itemOrders.forEach(o=>{
+    o.items.filter(i=>i.name!==it.name).forEach(i=>{alongside[i.name]=(alongside[i.name]||0)+i.qty;});
+  });
+  const topAlong=Object.entries(alongside).sort((a,b)=>b[1]-a[1]).slice(0,4);
+
+  return`<div class="rpt-drill">
+    <div style="font-size:12px;font-weight:800;color:var(--faint);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">${it.emoji} ${it.name} — ${it.qty} sold in ${itemOrders.length} orders</div>
+    ${slotList.map(s=>`<div class="rpt-bar-row" style="margin-bottom:4px">
+      <div class="rpt-bar-lbl" style="width:60px;font-size:11px">${fmHr(s.h)}${s.m?'+30':''}</div>
+      <div class="rpt-bar-wrap" style="height:16px"><div class="rpt-bar-fill" style="width:${Math.round(s.count/maxSC*100)}%;background:var(--blue)"></div></div>
+      <div class="rpt-bar-val" style="color:var(--blue);font-size:12px">${s.count}</div>
+    </div>`).join('')}
+    ${topAlong.length?`<div style="margin-top:8px;font-size:11px;color:var(--faint);font-weight:700">Often with: ${topAlong.map(([n,c])=>`${n} (${c}×)`).join(', ')}</div>`:''}
+  </div>`;
 }
 
 async function initApp(){
