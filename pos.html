@@ -61,7 +61,7 @@ body{display:flex;flex-direction:column}
 .cp:active{opacity:.7}
 #pg{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;padding-bottom:max(130px,calc(120px + var(--sb)));overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;align-content:start}
 .pc{background:var(--white);border:2.5px solid transparent;border-radius:18px;padding:18px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;min-height:140px;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:transform .1s,border-color .15s;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.pc:active{transform:scale(.94)}.pc.ic{border-color:var(--green)}.pc.oos{opacity:.4;pointer-events:none}
+.pc:active{transform:scale(.94)}.pc.ic{border-color:var(--green)}.pc.oos-warn{opacity:.5;}
 .cbadge{position:absolute;top:-10px;right:-10px;background:var(--green);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;box-shadow:0 2px 8px rgba(16,185,129,.5);animation:pop .2s ease}
 .pe{font-size:38px;line-height:1}.pn{font-weight:800;font-size:14px;color:var(--text);text-align:center;line-height:1.2}.pp{font-weight:900;font-size:19px;color:var(--blue)}
 .ps{font-size:11px;font-weight:700;color:var(--faint)}.ps.low{color:var(--yellow)}.ps.oos{color:var(--red)}
@@ -517,6 +517,7 @@ try {
         <div class="date-filter-row">
           <button class="fb active" id="hf-today" onclick="setHF('today')">Today</button>
           <button class="fb" id="hf-all" onclick="setHF('all')">All Time</button>
+          <button class="fb" id="hf-emp" onclick="setHF('employee')" style="background:#f3e8ff;color:var(--purple)">👤 Employee</button>
           <input type="date" class="date-input" id="hf-date" onchange="setHF('date')">
           <button class="exp-btn" onclick="exportCSV()">⬇ Export</button>
         </div>
@@ -699,7 +700,10 @@ try {
 <div id="reorder-overlay" class="overlay" onclick="closeReorder()"></div>
 <div id="reorder-modal" class="modal-sheet" style="max-height:85dvh">
   <div class="modal-title">↕️ Reorder Items</div>
-  <div class="modal-sub" id="reorder-sub">Drag rows or use arrows to reorder.</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <div class="modal-sub" id="reorder-sub" style="flex:1;margin:0">Drag rows or use arrows to reorder.</div>
+    <button onclick="roSortAZ()" style="flex:0 0 auto;background:#e0f2fe;color:#0369a1;border:none;border-radius:10px;padding:8px 12px;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito';white-space:nowrap">A→Z</button>
+  </div>
   <div id="reorder-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:55dvh;margin-bottom:12px"></div>
   <button class="bsv" onclick="saveReorder()">✅ Save Order</button>
   <button class="modal-close" onclick="closeReorder()" style="margin-top:8px">Cancel</button>
@@ -885,7 +889,7 @@ function renderCatBar(){
 function setCat(cat){curCat=cat;renderCatBar();renderProducts();}
 
 function addToCart(id){
-  const p=products.find(x=>x.id===id);if(!p||effectiveStock(p)<=0)return;
+  const p=products.find(x=>x.id===id);if(!p)return;
   const ex=cart.find(i=>i.id===id&&!i.variantId);
   if(ex)ex.qty++;else cart.push({id:p.id,name:p.name,price:p.price,emoji:p.emoji,qty:1});
   onChange();
@@ -1109,9 +1113,10 @@ function renderProducts(){
     const hasVariants=p.variants&&p.variants.length>0;
     const inC=gCQ(p.id),oos=stk<=0,low=!oos&&stk<10;
     const el=document.createElement('div');
-    el.className='pc'+(inC?' ic':'')+(oos?' oos':'');
-    el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}<div class="pe">${p.emoji}</div><div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasVariants?`<div class="var-badge">▾ ${p.variants.length} options</div>`:''}`;
-    if(!oos)el.addEventListener('click',()=>{
+    el.className='pc'+(inC?' ic':'')+(oos?' oos-warn':'');
+    const emojiHTML=p.emoji&&p.emoji.startsWith('data:')?`<img src="${p.emoji}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;">`:`<div class="pe">${p.emoji}</div>`;
+    el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}${emojiHTML}<div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasVariants?`<div class="var-badge">▾ ${p.variants.length} options</div>`:''}`;
+    el.addEventListener('click',()=>{
       if(hasVariants) openVariantPicker(p.id);
       else addToCart(p.id);
     });
@@ -1156,6 +1161,7 @@ function setHF(f){
   hFilter=f;
   document.getElementById('hf-today').classList.toggle('active',f==='today');
   document.getElementById('hf-all').classList.toggle('active',f==='all');
+  document.getElementById('hf-emp').classList.toggle('active',f==='employee');
   document.getElementById('hf-date').classList.toggle('active',f==='date');
   renderOrdersList();
 }
@@ -1331,12 +1337,13 @@ function renderOrdersList(){
   let filtered;
   if(hFilter==='today') filtered=tOrd;
   else if(hFilter==='all') filtered=orders;
+  else if(hFilter==='employee') filtered=orders.filter(o=>o.isEmployee);
   else if(hFilter==='date'){
     const v=document.getElementById('hf-date').value;
     filtered=v?orders.filter(o=>new Date(o.timestamp).toDateString()===new Date(v+'T12:00:00').toDateString()):tOrd;
   } else filtered=tOrd;
   const list=document.getElementById('orders-list');
-  if(!filtered.length){list.innerHTML=`<div class="es"><div class="esi">📋</div><div class="est">No orders ${hFilter==='date'?'on this date':hFilter==='today'?'today':'yet'}</div></div>`;return;}
+  if(!filtered.length){list.innerHTML=`<div class="es"><div class="esi">📋</div><div class="est">No orders ${hFilter==='employee'?'from employees':hFilter==='date'?'on this date':hFilter==='today'?'today':'yet'}</div></div>`;return;}
   list.innerHTML=filtered.map(o=>orderCardHTML(o)).join('');
 }
 
@@ -1360,6 +1367,36 @@ function exportCSV(){
 
 function renderInv(){renderProdList();if(curInvTab==='combos')renderComboList();if(curInvTab==='reports')renderReports();}
 
+function emojiFieldHTML(fieldId, currentVal){
+  const isImg=currentVal&&currentVal.startsWith('data:');
+  return`<div style="display:flex;gap:6px;align-items:center">
+    <input class="fi" id="${fieldId}" placeholder="Emoji or paste image" value="${isImg?'📷 (image)':currentVal||''}" style="flex:1" ${isImg?'data-has-image="true"':''}>
+    <label style="flex:0 0 auto;background:#e0f2fe;color:#0369a1;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:'Nunito'" title="Upload image">
+      📷
+      <input type="file" accept="image/*" style="display:none" onchange="handleEmojiImg(event,'${fieldId}')">
+    </label>
+  </div>`;
+}
+function handleEmojiImg(e, fieldId){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const b64=ev.target.result;
+    const input=document.getElementById(fieldId);
+    if(input){input.value='📷 (image)';input.dataset.imgData=b64;}
+    toast('✅ Image ready — save to apply');
+  };
+  reader.readAsDataURL(file);
+}
+function getEmojiVal(fieldId, fallback='🍽️'){
+  const el=document.getElementById(fieldId);if(!el)return fallback;
+  if(el.dataset.imgData)return el.dataset.imgData;
+  if(el.dataset.hasImage==='true'&&el.value==='📷 (image)'){
+    // Unchanged image — return original
+    return el.dataset.originalImg||fallback;
+  }
+  return el.value||fallback;
+}
 function showAPF(){
   document.getElementById('epf').style.display='none';
   document.getElementById('apf').style.display='block';
@@ -1372,7 +1409,7 @@ function showAPF(){
     </div>
     <div class="g2 fr2">
       <div><span class="fl">Category</span><select class="fs" id="np-c">${cats.map(x=>`<option>${x}</option>`).join('')}</select></div>
-      <div><span class="fl">Emoji</span><input class="fi" id="np-e" placeholder="🍕"></div>
+      <div><span class="fl">Emoji / Image</span>${emojiFieldHTML('np-e','')}</div>
     </div>
     <div class="g2 fr2">
       <div><span class="fl">Current stock</span><input class="fi" id="np-s" type="number" inputmode="numeric" placeholder="e.g. 24"></div>
@@ -1385,7 +1422,7 @@ function showAPF(){
 }
 function addProd(){
   const n=document.getElementById('np-n').value.trim(),p=parseFloat(document.getElementById('np-p').value);
-  const s=parseInt(document.getElementById('np-s').value)||0,cat=document.getElementById('np-c').value,e=document.getElementById('np-e').value||'🍽️';
+  const s=parseInt(document.getElementById('np-s').value)||0,cat=document.getElementById('np-c').value,e=getEmojiVal('np-e','🍽️');
   const costPer=parseFloat(document.getElementById('np-cost')?.value)||0;
   const employeePrice=parseFloat(document.getElementById('np-ep')?.value)||0;
   const unitsPerPackage=parseInt(document.getElementById('np-upp')?.value)||0;
@@ -1476,6 +1513,7 @@ function collectSI(){
 function showEPF(id){
   const p=products.find(x=>x.id===id);if(!p)return;
   _editingVariants=[...(p.variants||[])];
+  const _origEmoji=p.emoji||'';
   _editingSI=[...(p.stockItems||[])];
   document.getElementById('apf').style.display='none';
   document.getElementById('epf').style.display='block';
@@ -1486,8 +1524,8 @@ function showEPF(id){
       <div><span class="fl">Employee price</span><input class="fi" id="ep-ep" type="number" inputmode="decimal" value="${p.employeePrice||''}" placeholder="e.g. 1.50"></div>
     </div>
     <div class="g2 fr2">
-      <select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(c=>`<option${c===p.category?' selected':''}>${c}</option>`).join('')}</select>
-      <input class="fi" id="ep-e" value="${p.emoji}">
+      <select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(cat=>`<option${cat===p.category?' selected':''}>${cat}</option>`).join('')}</select>
+      <div><span class="fl">Emoji / Image</span>${emojiFieldHTML('ep-e',p.emoji||'')}</div>
     </div>
     <div class="g2 fr2">
       <div><span class="fl">Current stock</span><input class="fi" id="ep-s" type="number" inputmode="numeric" value="${p.stock}"></div>
@@ -1501,7 +1539,9 @@ function showEPF(id){
 }
 function saveProd(id){
   const n=document.getElementById('ep-n').value.trim(),p2=parseFloat(document.getElementById('ep-p').value);
-  const s=parseInt(document.getElementById('ep-s').value)||0,cat=document.getElementById('ep-c').value,e=document.getElementById('ep-e').value||'🍽️';
+  const s=parseInt(document.getElementById('ep-s').value)||0,cat=document.getElementById('ep-c').value;
+  const epEl=document.getElementById('ep-e');if(epEl&&epEl.dataset.hasImage==='true'&&!epEl.dataset.imgData)epEl.dataset.imgData=_origEmoji;
+  const e=getEmojiVal('ep-e','🍽️');
   const costPer=parseFloat(document.getElementById('ep-cost')?.value)||0;
   const employeePrice=parseFloat(document.getElementById('ep-ep')?.value)||0;
   const unitsPerPackage=parseInt(document.getElementById('ep-upp')?.value)||0;
@@ -1518,7 +1558,8 @@ function renderProdList(){
     const cost=calcProductCost(p);
     const pct=marginPct(p);
     const badge=cost?`<span class="cost-badge ${marginClass(pct)}">${pct}% margin</span>`:'';
-    return`<div class="ii"><div class="iie">${p.emoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
+    const iiEmoji=p.emoji&&p.emoji.startsWith('data:')?`<img src="${p.emoji}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;">`:`<span style="font-size:28px">${p.emoji}</span>`;
+    return`<div class="ii"><div class="iie">${iiEmoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
   }).join('');
 }
 
@@ -1813,6 +1854,10 @@ function roMove(i,dir){
   const ni=i+dir;
   if(ni<0||ni>=_roList.length)return;
   const tmp=_roList[i];_roList[i]=_roList[ni];_roList[ni]=tmp;
+  renderReorderList();
+}
+function roSortAZ(){
+  _roList.sort((a,b)=>a.name.localeCompare(b.name));
   renderReorderList();
 }
 function saveReorder(){
@@ -2353,7 +2398,38 @@ function renderReports(){
     </div>`).join('')}
   </div>`:'';
 
-  el.innerHTML=rangeBar+summary+itemBreakdown+slowHTML+peakHTML+pairsHTML+catHTML+payHTML+marginsHTML+dodHTML+comboHTML;
+  // ── Employee orders ──
+  const empMap={};
+  ord.filter(o=>o.isEmployee).forEach(o=>{
+    const n=o.employeeName||'Unknown';
+    if(!empMap[n])empMap[n]={name:n,orders:[],total:0,items:{}};
+    empMap[n].orders.push(o);
+    empMap[n].total+=o.total;
+    o.items.forEach(i=>{empMap[n].items[i.name]=(empMap[n].items[i.name]||0)+i.qty;});
+  });
+  const empList=Object.values(empMap).sort((a,b)=>b.orders.length-a.orders.length);
+  // Flag anyone with more than 3 orders in the period
+  const empHTML=empList.length?`<div class="rpt-section">
+    <div class="rpt-title">👤 Employee Orders</div>
+    ${empList.map(e=>{
+      const flagged=e.orders.length>3;
+      const topItems=Object.entries(e.items).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([n,q])=>`${n} ×${q}`).join(', ');
+      const firstDate=new Date(Math.min(...e.orders.map(o=>new Date(o.timestamp)))).toLocaleDateString('en-US',{timeZone:tz,month:'short',day:'numeric'});
+      const lastDate=new Date(Math.max(...e.orders.map(o=>new Date(o.timestamp)))).toLocaleDateString('en-US',{timeZone:tz,month:'short',day:'numeric'});
+      const dateRange=firstDate===lastDate?firstDate:`${firstDate} – ${lastDate}`;
+      return`<div style="background:${flagged?'#fff5f5':'var(--bg)'};border-radius:12px;padding:12px;margin-bottom:8px;border:1.5px solid ${flagged?'var(--red)':'transparent'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-weight:800;font-size:14px;color:var(--text)">${e.name} ${flagged?'<span style="font-size:11px;background:#fee2e2;color:var(--red);padding:2px 7px;border-radius:6px;margin-left:4px">⚠️ frequent</span>':''}</div>
+          <div style="font-weight:900;font-size:14px;color:var(--purple)">${fm(e.total)}</div>
+        </div>
+        <div style="font-size:12px;color:var(--faint);font-weight:600">${e.orders.length} order${e.orders.length>1?'s':''} · ${dateRange}</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:600;margin-top:3px">${topItems}</div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:11px;color:var(--faint);font-weight:600;margin-top:4px">⚠️ flagged when more than 3 orders in selected period</div>
+  </div>`:'';
+
+  el.innerHTML=rangeBar+summary+empHTML+itemBreakdown+slowHTML+peakHTML+pairsHTML+catHTML+payHTML+marginsHTML+dodHTML+comboHTML;
 }
 
 function getPeakHour(times){
