@@ -2208,6 +2208,9 @@ function renderReports(){
   ord.forEach(o=>o.items.forEach(i=>{
     const key=i.name;
     if(!itemMap[key])itemMap[key]={name:i.name,emoji:i.emoji||'🍽️',id:i.id,qty:0,rev:0,orders:[],times:[]};
+    // Always use the current product emoji if available (handles image uploads added after orders)
+    const liveP=gP(i.id);
+    if(liveP&&liveP.emoji)itemMap[key].emoji=liveP.emoji;
     itemMap[key].qty+=i.qty;
     itemMap[key].rev+=i.price*i.qty;
     itemMap[key].orders.push(o);
@@ -2468,7 +2471,7 @@ function buildItemDrill(it,ord,tz){
   const topAlong=Object.entries(alongside).sort((a,b)=>b[1]-a[1]).slice(0,4);
 
   return`<div class="rpt-drill">
-    <div style="font-size:12px;font-weight:800;color:var(--faint);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">${it.emoji} ${it.name} — ${it.qty} sold in ${itemOrders.length} orders</div>
+    <div style="font-size:12px;font-weight:800;color:var(--faint);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">${ei(it.emoji,16,3)} ${it.name} — ${it.qty} sold in ${itemOrders.length} orders</div>
     ${slotList.map(s=>`<div class="rpt-bar-row" style="margin-bottom:4px">
       <div class="rpt-bar-lbl" style="width:60px;font-size:11px">${fmHr(s.h)}${s.m?'+30':''}</div>
       <div class="rpt-bar-wrap" style="height:16px"><div class="rpt-bar-fill" style="width:${Math.round(s.count/maxSC*100)}%;background:var(--blue)"></div></div>
