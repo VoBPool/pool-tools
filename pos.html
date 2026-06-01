@@ -451,6 +451,7 @@ body{display:flex;flex-direction:column}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
 
 // ── PASTE YOUR FIREBASE CONFIG HERE ──────────────────────
 const firebaseConfig = {
@@ -467,8 +468,10 @@ let db = null;
 try {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  const storage = getStorage(app);
   window._db = db;
-  window._fb = { doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp };
+  window._storage = storage;
+  window._fb = { doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp, ref, uploadBytes, getDownloadURL };
   window._fbReady = true;
 } catch(e) {
   console.warn('Firebase init failed, running offline:', e);
@@ -809,10 +812,12 @@ const fmD=i=>new Date(i).toLocaleDateString([],{month:'short',day:'numeric'});
 const fmNum=n=>String(n).padStart(2,'0');
 const tod=()=>new Date().toDateString();
 const gP=id=>products.find(p=>p.id===id);
-// Render emoji OR base64 image
+// Render emoji OR image (Firebase Storage URL or legacy base64)
 function ei(emoji,size=28,radius){
   if(!emoji)return'🍽️';
-  if(emoji.startsWith('data:'))return`<img src="${emoji}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:${radius!=null?radius:Math.round(size*.25)}px;vertical-align:middle;display:inline-block">`;
+  if(emoji.startsWith('data:')||emoji.startsWith('http')||emoji.startsWith('blob:')){
+    return`<img src="${emoji}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:${radius!=null?radius:Math.round(size*.25)}px;vertical-align:middle;display:inline-block">`;
+  }
   return emoji;
 }
 const gC=id=>combos.find(c=>c.id===id);
@@ -1120,7 +1125,7 @@ function renderProducts(){
     const inC=gCQ(p.id),oos=stk<=0,low=!oos&&stk<10;
     const el=document.createElement('div');
     el.className='pc'+(inC?' ic':'')+(oos?' oos-warn':'');
-    const emojiHTML=p.emoji&&p.emoji.startsWith('data:')?`<img src="${p.emoji}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;">`:`<div class="pe">${p.emoji}</div>`;
+    const emojiHTML=p.emoji&&(p.emoji.startsWith('data:')||p.emoji.startsWith('http'))?`<img src="${p.emoji}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;">`:`<div class="pe">${p.emoji}</div>`;
     el.innerHTML=`${inC?`<div class="cbadge">${inC}</div>`:''}${emojiHTML}<div class="pn">${p.name}</div><div class="pp">${fm(p.price)}</div><div class="ps ${oos?'oos':low?'low':''}">${oos?'Out of stock':stk+' left'}</div>${hasVariants?`<div class="var-badge">▾ ${p.variants.length} options</div>`:''}`;
     el.addEventListener('click',()=>{
       if(hasVariants) openVariantPicker(p.id);
@@ -1385,12 +1390,40 @@ function emojiFieldHTML(fieldId, currentVal){
 }
 function handleEmojiImg(e, fieldId){
   const file=e.target.files[0];if(!file)return;
+  const input=document.getElementById(fieldId);
+  if(!input)return;
+
+  // Show uploading state
+  input.value='⏳ Uploading...';
+  input.disabled=true;
+
+  if(window._fbReady&&window._storage){
+    // Upload to Firebase Storage
+    const {ref,uploadBytes,getDownloadURL}=window._fb;
+    const ext=file.name.split('.').pop()||'jpg';
+    const path=`product-images/${Date.now()}.${ext}`;
+    const storageRef=ref(window._storage,path);
+    uploadBytes(storageRef,file).then(snap=>getDownloadURL(snap.ref)).then(url=>{
+      input.value='📷 (image)';
+      input.dataset.imgData=url;
+      input.disabled=false;
+      toast('✅ Image uploaded');
+    }).catch(err=>{
+      console.warn('Storage upload failed, falling back to local:',err);
+      fallbackLocalImg(file,input);
+    });
+  } else {
+    // No Firebase — fall back to base64 local only
+    fallbackLocalImg(file,input);
+  }
+}
+function fallbackLocalImg(file,input){
   const reader=new FileReader();
   reader.onload=ev=>{
-    const b64=ev.target.result;
-    const input=document.getElementById(fieldId);
-    if(input){input.value='📷 (image)';input.dataset.imgData=b64;}
-    toast('✅ Image ready — save to apply');
+    input.value='📷 (image)';
+    input.dataset.imgData=ev.target.result;
+    input.disabled=false;
+    toast('✅ Image ready (local only)');
   };
   reader.readAsDataURL(file);
 }
@@ -1564,7 +1597,7 @@ function renderProdList(){
     const cost=calcProductCost(p);
     const pct=marginPct(p);
     const badge=cost?`<span class="cost-badge ${marginClass(pct)}">${pct}% margin</span>`:'';
-    const iiEmoji=p.emoji&&p.emoji.startsWith('data:')?`<img src="${p.emoji}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;">`:`<span style="font-size:28px">${p.emoji}</span>`;
+    const iiEmoji=p.emoji&&(p.emoji.startsWith('data:')||p.emoji.startsWith('http'))?`<img src="${p.emoji}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;">`:`<span style="font-size:28px">${p.emoji}</span>`;
     return`<div class="ii"><div class="iie">${iiEmoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
   }).join('');
 }
@@ -2481,6 +2514,33 @@ function buildItemDrill(it,ord,tz){
   </div>`;
 }
 
+// ── Migrate base64 images to Firebase Storage ──────────
+async function migrateBase64Images(){
+  if(!window._fbReady||!window._storage)return;
+  const {ref,uploadBytes,getDownloadURL}=window._fb;
+  const needsMigration=products.filter(p=>p.emoji&&(p.emoji.startsWith('data:')||p.emoji.startsWith('http')));
+  if(!needsMigration.length)return;
+  console.log(`Migrating ${needsMigration.length} base64 image(s) to Storage...`);
+  let changed=false;
+  for(const p of needsMigration){
+    try{
+      // Convert base64 to blob
+      const res=await fetch(p.emoji);
+      const blob=await res.blob();
+      const ext=blob.type.split('/')[1]||'jpg';
+      const storageRef=ref(window._storage,`product-images/${p.id}.${ext}`);
+      const snap=await uploadBytes(storageRef,blob);
+      const url=await getDownloadURL(snap.ref);
+      products=products.map(x=>x.id===p.id?{...x,emoji:url}:x);
+      changed=true;
+      console.log(`Migrated: ${p.name}`);
+    }catch(err){
+      console.warn(`Failed to migrate ${p.name}:`,err);
+    }
+  }
+  if(changed){save();renderCatBar();renderProducts();toast('✅ Images migrated to cloud storage');}
+}
+
 async function initApp(){
   // Set today's date in header (Eastern time)
   const hdrDate=document.getElementById('hdr-date');
@@ -2511,6 +2571,8 @@ async function initApp(){
         if(d.productOrder) productOrder=d.productOrder;
         if(d.stockLogs)    stockLogs=d.stockLogs;
         saveLocal();
+        // Migrate any base64 images to Firebase Storage
+        migrateBase64Images();
         renderCatBar();renderProducts();updateTodayTotal();
       }
 
