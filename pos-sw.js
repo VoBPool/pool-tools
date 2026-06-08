@@ -1,4 +1,4 @@
-const CACHE = 'pool-stand-v1';
+const CACHE = 'pool-stand-v3';
 
 // Only cache fonts — they never change
 const STATIC_ASSETS = [
@@ -9,15 +9,18 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE).then(cache => cache.addAll(STATIC_ASSETS))
   );
+  // Take over immediately — don't wait for old SW to finish
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
+  // Delete ALL old caches immediately
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     )
   );
+  // Take control of all open tabs right away
   self.clients.claim();
 });
 
@@ -38,12 +41,11 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // HTML pages: network-first, fall back to cache if offline
+  // HTML pages: network-first, fall back to cache only if offline
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          // Save fresh copy to cache
           const copy = response.clone();
           caches.open(CACHE).then(cache => cache.put(event.request, copy));
           return response;
