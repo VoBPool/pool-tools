@@ -340,21 +340,6 @@ body{display:flex;flex-direction:column}
 .margin-bar-wrap{height:6px;background:var(--light);border-radius:4px;overflow:hidden;margin-top:4px;}
 .margin-bar-fill{height:100%;border-radius:4px;}
 
-/* ── Pizza order ──────────────────────────────────────── */
-.pizza-pkg{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:2px solid var(--border);cursor:pointer;touch-action:manipulation;background:var(--white);font-family:'Nunito';}
-.pizza-pkg.selected{border-color:#dc2626;background:#fff5f5;}
-.pizza-pkg-emoji{font-size:24px;flex-shrink:0;}
-.pizza-pkg-info{flex:1;}
-.pizza-pkg-name{font-weight:900;font-size:15px;color:var(--text);}
-.pizza-pkg-desc{font-size:12px;color:var(--faint);font-weight:600;}
-.pizza-pkg-price{font-weight:900;font-size:16px;color:#dc2626;flex-shrink:0;}
-.pizza-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--light);}
-.pizza-row:last-child{border-bottom:none;}
-.pizza-row-label{font-weight:800;font-size:13px;color:var(--text);flex-shrink:0;width:60px;}
-.pizza-type-btns{display:flex;gap:6px;flex:1;}
-.pizza-type-btn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);font-size:12px;font-weight:800;cursor:pointer;font-family:'Nunito';touch-action:manipulation;text-align:center;}
-.pizza-type-btn.active{border-color:#dc2626;background:#fff5f5;color:#dc2626;}
-
 .rpt-item-row{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:12px;cursor:pointer;transition:background .1s;touch-action:manipulation;}
 .rpt-item-row:active,.rpt-item-row.drilling{background:#eff6ff;}
 .rpt-item-emoji{font-size:24px;flex-shrink:0;width:32px;text-align:center;}
@@ -515,9 +500,6 @@ try {
   <div id="screen-pos" class="scr active">
     <div id="cat-bar"></div>
     <div id="csugg"></div>
-    <div id="pizza-btn-bar" style="padding:8px 14px 0;display:none">
-      <button onclick="openPizzaModal()" style="width:100%;padding:12px;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:14px;font-family:'Paytone One';font-size:16px;cursor:pointer;letter-spacing:.5px;touch-action:manipulation">🍕 Pizza Order</button>
-    </div>
     <div id="pg"></div>
   </div>
 
@@ -665,17 +647,6 @@ try {
 
 <!-- Inventory lock -->
 <!-- Employee order -->
-<!-- Pizza order modal -->
-<div id="pizza-overlay" class="overlay" onclick="closePizzaModal()"></div>
-<div id="pizza-modal" class="modal-sheet" style="max-height:92dvh">
-  <div class="modal-title">🍕 Pizza Order</div>
-  <div id="pizza-pkg-select" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
-  <div id="pizza-breakdown" style="margin-bottom:12px"></div>
-  <div id="pizza-total" style="font-family:'Paytone One';font-size:22px;color:var(--green);text-align:center;margin-bottom:14px"></div>
-  <button class="bsv" onclick="addPizzaToCart()">Add to Cart</button>
-  <button class="modal-close" onclick="closePizzaModal()" style="margin-top:8px">Cancel</button>
-</div>
-
 <div id="emp-overlay" class="overlay" onclick="closeEmpModal()"></div>
 <div id="emp-modal" class="modal-sheet">
   <div class="modal-title">👤 Employee Order</div>
@@ -933,7 +904,7 @@ function renderCatBar(){
     +`<button class="cp settings-pill" onclick="openPillMgr()">⚙️</button>`
     +`<button class="cp settings-pill" onclick="openReorder()" title="Reorder items">↕️</button>`;
 }
-function setCat(cat){curCat=cat;renderCatBar();renderProducts();updatePizzaBtn();}
+function setCat(cat){curCat=cat;renderCatBar();renderProducts();}
 
 function addToCart(id){
   const p=products.find(x=>x.id===id);if(!p)return;
@@ -2113,120 +2084,6 @@ function renderStockLog(){
   }).join('');
 }
 
-// ── Pizza orders ───────────────────────────────────────
-const PIZZA_PACKAGES=[
-  {id:'splash',name:'Splash Package',emoji:'🌊',qty:2,price:40},
-  {id:'cannonball',name:'Cannonball Package',emoji:'💦',qty:3,price:54},
-  {id:'bigwave',name:'Big Wave Package',emoji:'🌊🌊',qty:4,price:72},
-  {id:'custom',name:'Custom Order',emoji:'🍕',qty:0,price:0},
-];
-let _pizzaPkg='splash';
-let _pizzaTypes=[]; // array of 'cheese'|'pepperoni'|'half'
-let _pizzaCustomQty=5;
-
-function openPizzaModal(){
-  _pizzaPkg='splash';
-  _pizzaTypes=['cheese','cheese'];
-  _pizzaCustomQty=5;
-  document.getElementById('pizza-overlay').classList.add('open');
-  document.getElementById('pizza-modal').classList.add('open');
-  renderPizzaModal();
-}
-function closePizzaModal(){
-  document.getElementById('pizza-overlay').classList.remove('open');
-  document.getElementById('pizza-modal').classList.remove('open');
-}
-function selectPizzaPkg(id){
-  _pizzaPkg=id;
-  const pkg=PIZZA_PACKAGES.find(p=>p.id===id);
-  if(id==='custom'){
-    _pizzaTypes=Array(_pizzaCustomQty).fill('cheese');
-  } else {
-    _pizzaTypes=Array(pkg.qty).fill('cheese');
-  }
-  renderPizzaModal();
-}
-function setPizzaType(idx,type){
-  _pizzaTypes[idx]=type;
-  renderPizzaModal();
-}
-function setPizzaCustomQty(qty){
-  qty=Math.max(5,parseInt(qty)||5);
-  _pizzaCustomQty=qty;
-  _pizzaTypes=Array(qty).fill('cheese');
-  renderPizzaModal();
-}
-function renderPizzaModal(){
-  const pkg=PIZZA_PACKAGES.find(p=>p.id===_pizzaPkg);
-  const price=_pizzaPkg==='custom'?_pizzaCustomQty*18:pkg.price;
-  const qty=_pizzaPkg==='custom'?_pizzaCustomQty:pkg.qty;
-
-  // Package selector
-  document.getElementById('pizza-pkg-select').innerHTML=PIZZA_PACKAGES.map(p=>`
-    <div class="pizza-pkg${_pizzaPkg===p.id?' selected':''}" onclick="selectPizzaPkg('${p.id}')">
-      <div class="pizza-pkg-emoji">${p.emoji}</div>
-      <div class="pizza-pkg-info">
-        <div class="pizza-pkg-name">${p.name}</div>
-        <div class="pizza-pkg-desc">${p.id==='custom'?'5+ pizzas · $18 each':`${p.qty} pizza${p.qty>1?'s':''}`}</div>
-      </div>
-      <div class="pizza-pkg-price">${p.id==='custom'?'$18/ea':fm(p.price)}</div>
-    </div>`).join('');
-
-  // Custom qty input
-  const customQtyHTML=_pizzaPkg==='custom'?`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--light);margin-bottom:4px">
-      <div style="font-weight:800;font-size:13px;color:var(--text)">How many pizzas?</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
-        <button onclick="setPizzaCustomQty(${_pizzaCustomQty-1})" class="qb m" style="width:32px;height:32px">−</button>
-        <div style="font-weight:900;font-size:18px;min-width:24px;text-align:center">${_pizzaCustomQty}</div>
-        <button onclick="setPizzaCustomQty(${_pizzaCustomQty+1})" class="qb p" style="width:32px;height:32px">+</button>
-      </div>
-    </div>`:'';
-
-  // Pizza type breakdown
-  const rows=_pizzaTypes.map((t,i)=>`
-    <div class="pizza-row">
-      <div class="pizza-row-label">Pizza ${i+1}</div>
-      <div class="pizza-type-btns">
-        <button class="pizza-type-btn${t==='cheese'?' active':''}" onclick="setPizzaType(${i},'cheese')">🧀 Cheese</button>
-        <button class="pizza-type-btn${t==='pepperoni'?' active':''}" onclick="setPizzaType(${i},'pepperoni')">🍕 Pep</button>
-        <button class="pizza-type-btn${t==='half'?' active':''}" onclick="setPizzaType(${i},'half')">½ Half</button>
-      </div>
-    </div>`).join('');
-
-  document.getElementById('pizza-breakdown').innerHTML=customQtyHTML+rows;
-  document.getElementById('pizza-total').textContent=fm(price);
-}
-function addPizzaToCart(){
-  const pkg=PIZZA_PACKAGES.find(p=>p.id===_pizzaPkg);
-  const price=_pizzaPkg==='custom'?_pizzaCustomQty*18:pkg.price;
-  const qty=_pizzaPkg==='custom'?_pizzaCustomQty:pkg.qty;
-  const cheese=_pizzaTypes.filter(t=>t==='cheese').length;
-  const pep=_pizzaTypes.filter(t=>t==='pepperoni').length;
-  const half=_pizzaTypes.filter(t=>t==='half').length;
-  const parts=[];
-  if(cheese)parts.push(`${cheese}× Cheese`);
-  if(pep)parts.push(`${pep}× Pep`);
-  if(half)parts.push(`${half}× Half`);
-  const breakdown=parts.join(', ');
-  const name=_pizzaPkg==='custom'?`Custom Pizza Order (${qty} pizzas)`:pkg.name;
-  cart.push({
-    id:'pizza-'+Date.now(),
-    name:`${name} — ${breakdown}`,
-    price,qty:1,emoji:'🍕',
-    isPizzaOrder:true,pizzaBreakdown:breakdown
-  });
-  closePizzaModal();
-  onChange();
-  toast(`🍕 ${name} added!`);
-}
-
-// Show pizza button when "Food" or "All" category is active
-function updatePizzaBtn(){
-  const el=document.getElementById('pizza-btn-bar');
-  if(el)el.style.display=(curCat==='All'||curCat==='Food')?'block':'none';
-}
-
 // ── Auto day reset ─────────────────────────────────────
 function checkNewDay(){
   const lastDay=localStorage.getItem('cs_last_day');
@@ -2593,7 +2450,7 @@ async function initApp(){
   }
   // Always render immediately from localStorage — never block the UI
   checkNewDay();
-  renderCatBar();renderProducts();updateTodayTotal();updatePizzaBtn();
+  renderCatBar();renderProducts();updateTodayTotal();
   applyLayout();
   window.addEventListener('resize',()=>{applyLayout();renderProducts();});
 
