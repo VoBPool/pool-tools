@@ -720,8 +720,8 @@ const DP=[
   {id:6,name:"Water",price:1.50,category:"Drinks",emoji:"💧"},
   {id:7,name:"Soda",price:2.00,category:"Drinks",emoji:"🥤"},
   {id:8,name:"Lemonade",price:2.50,category:"Drinks",emoji:"🍋"},
-  {id:9,name:"Ice Cream",price:3.50,category:"Treats",emoji:"🍦"},
-  {id:10,name:"Popsicle",price:1.50,category:"Treats",emoji:"🧊"},
+  {id:9,name:"Ice Cream",price:3.50,category:"Snacks",emoji:"🍦"},
+  {id:10,name:"Popsicle",price:1.50,category:"Snacks",emoji:"🧊"},
 ];
 const DC=[
   {id:101,name:"Meal Deal",emoji:"🍱",type:"discount",items:[{productId:1,qty:1},{productId:7,qty:1}],comboPrice:4.50},
@@ -730,7 +730,7 @@ const DC=[
 ];
 
 let products=JSON.parse(localStorage.getItem('cs_products')||'null')||DP;
-let pillOrder=JSON.parse(localStorage.getItem('cs_pill_order')||'null')||["All","Food","Snacks","Drinks","Treats"];
+let pillOrder=JSON.parse(localStorage.getItem('cs_pill_order')||'null')||["All","Food","Candy","Drinks","Frozen","Snacks"];
 let combos=JSON.parse(localStorage.getItem('cs_combos')||'null')||DC;
 let orders=JSON.parse(localStorage.getItem('cs_orders')||'[]');
 let orderCounter=parseInt(localStorage.getItem('cs_order_counter')||'0');
@@ -1418,7 +1418,7 @@ function getEmojiVal(fieldId, fallback='🍽️'){
 function showAPF(){
   document.getElementById('epf').style.display='none';
   document.getElementById('apf').style.display='block';
-  const cats=['Food','Snacks','Drinks','Treats'];
+  const cats=['Food','Candy','Drinks','Frozen','Snacks'];
   document.getElementById('apf').innerHTML=`<div class="fc"><div class="ftit">New Item</div>
     <div class="fr2"><input class="fi" id="np-n" placeholder="Item name *"></div>
     <div class="g2 fr2">
@@ -1446,7 +1446,7 @@ function addProd(){
   save();document.getElementById('apf').style.display='none';renderProdList();renderCatBar();toast('✅ Item added!');
 }
 function variantFormHTML(variants){
-  const rows=(variants||[]).map((v,i)=>`<div class="variant-row" id="vrow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+  const rows=(variants||[]).map((v,i)=>`<div class="var-item-row" id="vrow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <input class="fi" style="flex:0 0 50px;padding:8px;font-size:13px" placeholder="🍫" value="${v.emoji||''}" id="ve-e-${i}">
     <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Kit Kat" value="${v.name}" id="ve-n-${i}">
     <input class="fi" style="flex:0 0 70px;font-size:13px;padding:8px" type="number" inputmode="decimal" placeholder="+0.00" value="${v.priceDiff||0}" id="ve-p-${i}" title="Price difference from base">
@@ -1463,7 +1463,7 @@ function variantFormHTML(variants){
 let _editingVariants=[];
 function addVariantRow(){
   _editingVariants.push({id:Date.now(),name:'',emoji:'',priceDiff:0});
-  document.getElementById('variant-rows').insertAdjacentHTML('beforeend',`<div class="variant-row" id="vrow-${_editingVariants.length-1}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+  document.getElementById('variant-rows').insertAdjacentHTML('beforeend',`<div class="var-item-row" id="vrow-${_editingVariants.length-1}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <input class="fi" style="flex:0 0 50px;padding:8px;font-size:13px" placeholder="🍫" id="ve-e-${_editingVariants.length-1}">
     <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Kit Kat" id="ve-n-${_editingVariants.length-1}">
     <input class="fi" style="flex:0 0 70px;font-size:13px;padding:8px" type="number" inputmode="decimal" placeholder="+0.00" value="0" id="ve-p-${_editingVariants.length-1}" title="Price difference">
@@ -1472,55 +1472,13 @@ function addVariantRow(){
 }
 function removeVariantRow(i){const row=document.getElementById('vrow-'+i);if(row)row.remove();}
 function collectVariants(){
-  const rows=document.querySelectorAll('.variant-row');
+  const rows=document.querySelectorAll('.var-item-row');
   const out=[];
   rows.forEach((row,i)=>{
     const idx=row.id.replace('vrow-','');
     const name=document.getElementById('ve-n-'+idx)?.value.trim();
     if(!name)return;
     out.push({id:_editingVariants[i]?.id||Date.now()+i,name,emoji:document.getElementById('ve-e-'+idx)?.value.trim()||'',priceDiff:parseFloat(document.getElementById('ve-p-'+idx)?.value)||0});
-  });
-  return out;
-}
-function stockItemsFormHTML(items){
-  const rows=(items||[]).map((s,i)=>`<div class="variant-row" id="sirow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Chip Bags" value="${s.name}" id="si-n-${i}">
-    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Unit" value="${s.unit||''}" id="si-u-${i}" title="Unit (bags, cans…)">
-    <input class="fi" style="flex:0 0 55px;font-size:13px;padding:8px" type="number" placeholder="Pkg" value="${s.perPackage||''}" id="si-pp-${i}" title="Units per package (optional)">
-    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Pkg unit" value="${s.packageUnit||''}" id="si-pu-${i}" title="Package unit name (e.g. Box)">
-    <button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito';font-size:12px;touch-action:manipulation" onclick="removeSIRow(${i})">✕</button>
-  </div>`).join('');
-  return`<div class="recipe-section" id="si-section">
-    <div class="recipe-title">📦 Stock Log Items <span style="font-size:11px;color:var(--blue);font-weight:600">(optional)</span></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">Define what employees count for this product. E.g. Nachos → "Chip Bags" + "Cheese Cans". "Pkg" = units per package (e.g. 2 bags/box).</div>
-    <div style="display:flex;gap:4px;font-size:10px;font-weight:700;color:var(--faint);margin-bottom:4px;padding:0 2px">
-      <span style="flex:1">What to count</span><span style="flex:0 0 60px">Unit</span><span style="flex:0 0 55px">Per pkg</span><span style="flex:0 0 60px">Pkg name</span><span style="flex:0 0 32px"></span>
-    </div>
-    <div id="si-rows">${rows}</div>
-    <button class="add-ing-btn" onclick="addSIRow()">+ Add Item</button>
-  </div>`;
-}
-let _editingSI=[];
-function addSIRow(){
-  _editingSI.push({id:Date.now(),name:'',unit:'',perPackage:0,packageUnit:''});
-  const i=_editingSI.length-1;
-  document.getElementById('si-rows').insertAdjacentHTML('beforeend',`<div class="variant-row" id="sirow-${i}" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <input class="fi" style="flex:1;font-size:13px;padding:8px" placeholder="e.g. Chip Bags" id="si-n-${i}">
-    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Unit" id="si-u-${i}">
-    <input class="fi" style="flex:0 0 55px;font-size:13px;padding:8px" type="number" placeholder="Pkg" id="si-pp-${i}">
-    <input class="fi" style="flex:0 0 60px;font-size:13px;padding:8px" placeholder="Pkg unit" id="si-pu-${i}">
-    <button style="background:#fef2f2;color:var(--red);border:none;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-family:'Nunito';font-size:12px" onclick="removeSIRow(${i})">✕</button>
-  </div>`);
-}
-function removeSIRow(i){const r=document.getElementById('sirow-'+i);if(r)r.remove();}
-function collectSI(){
-  const rows=document.querySelectorAll('[id^="sirow-"]');
-  const out=[];
-  rows.forEach((row,i)=>{
-    const idx=row.id.replace('sirow-','');
-    const name=document.getElementById('si-n-'+idx)?.value.trim();
-    if(!name)return;
-    out.push({id:_editingSI[i]?.id||Date.now()+i,name,unit:document.getElementById('si-u-'+idx)?.value.trim()||'units',perPackage:parseInt(document.getElementById('si-pp-'+idx)?.value)||0,packageUnit:document.getElementById('si-pu-'+idx)?.value.trim()||''});
   });
   return out;
 }
@@ -1538,12 +1496,11 @@ function showEPF(id){
       <div><span class="fl">Employee price</span><input class="fi" id="ep-ep" type="number" inputmode="decimal" value="${p.employeePrice||''}" placeholder="e.g. 1.50"></div>
     </div>
     <div class="g2 fr2">
-      <select class="fs" id="ep-c">${['Food','Snacks','Drinks','Treats'].map(cat=>`<option${cat===p.category?' selected':''}>${cat}</option>`).join('')}</select>
+      <select class="fs" id="ep-c">${['Food','Candy','Drinks','Frozen','Snacks'].map(cat=>`<option${cat===p.category?' selected':''}>${cat}</option>`).join('')}</select>
       <div><span class="fl">Emoji / Image</span>${emojiFieldHTML('ep-e',p.emoji||'')}</div>
     </div>
 
     <div class="fr2"><span class="fl">Your cost per item (for margin tracking)</span><input class="fi" id="ep-cost" type="number" inputmode="decimal" placeholder="e.g. 0.75" step="0.01" value="${p.costPer||''}"></div>
-    ${stockItemsFormHTML(p.stockItems||[])}
     ${variantFormHTML(p.variants||[])}
     <div class="fa"><button class="bsb" onclick="saveProd(${id})">Save</button><button class="bcn" onclick="document.getElementById('epf').style.display='none'">Cancel</button></div>
   </div>`;
@@ -1557,8 +1514,7 @@ function saveProd(id){
   const employeePrice=parseFloat(document.getElementById('ep-ep')?.value)||0;
   if(!n||isNaN(p2))return toast('Name & price required','#ef4444');
   const variants=collectVariants();
-  const stockItems=collectSI();
-  products=products.map(x=>x.id===id?{...x,name:n,price:p2,category:cat,emoji:e,variants,costPer,employeePrice,stockItems}:x);
+  products=products.map(x=>x.id===id?{...x,name:n,price:p2,category:cat,emoji:e,variants,costPer,employeePrice}:x);
   save();document.getElementById('epf').style.display='none';renderProdList();toast('✅ Updated!');
 }
 function delProd(id){products=products.filter(p=>p.id!==id);save();renderProdList();toast('Removed','#64748b');}
@@ -1567,9 +1523,10 @@ function renderProdList(){
     const stk=effectiveStock(p),sc=stk===0?'empty':stk<10?'low':'ok';
     const cost=calcProductCost(p);
     const pct=marginPct(p);
-    const badge=cost?`<span class="cost-badge ${marginClass(pct)}">${pct}% margin</span>`:'';
+    const marginBadge=cost?`<span class="cost-badge ${marginClass(pct)}">${pct}% margin · ${fm(p.price-cost)} profit</span>`:'';
+    const empBadge=p.employeePrice?`<span class="cost-badge none">👤 ${fm(p.employeePrice)}</span>`:'';
     const iiEmoji=p.emoji&&(p.emoji.startsWith('data:')||p.emoji.startsWith('http'))?`<img src="${p.emoji}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;">`:`<span style="font-size:28px">${p.emoji}</span>`;
-    return`<div class="ii"><div class="iie">${iiEmoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}</div>${badge}</div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iis"><div class="iisv ${sc}">${stk}</div><div class="iisl">STOCK</div></div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
+    return`<div class="ii"><div class="iie">${iiEmoji}</div><div class="iii"><div class="iin">${p.name}</div><div class="iic">${p.category}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${marginBadge}${empBadge}</div></div><div class="iip"><div class="iipv">${fm(p.price)}</div><div class="iipl">PRICE</div>${cost?`<div style="font-size:10px;color:var(--faint);font-weight:700">${fm(cost)} cost</div>`:''}</div><div class="iia"><button class="be" onclick="showEPF(${p.id})">Edit</button><button class="bd" onclick="delProd(${p.id})">Del</button></div></div>`;
   }).join('');
 }
 
