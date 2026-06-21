@@ -497,6 +497,11 @@ try {
     </div>
   </div>
 
+  <div id="pending-sync-banner" style="display:none;align-items:center;gap:8px;background:#fef3c7;color:#92400e;padding:10px 14px;font-size:13px;font-weight:800;flex-shrink:0">
+    <span class="psb-text">⚠️ Orders not yet synced</span>
+    <button onclick="retryPendingOrders()" style="margin-left:auto;background:#92400e;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito'">Retry Now</button>
+  </div>
+
   <div id="screen-pos" class="scr active">
     <div id="cat-bar"></div>
     <div id="csugg"></div>
@@ -794,11 +799,24 @@ function save(){
 
 async function saveOrder(order){
   saveLocal();
-  if(!window._fbReady||!window._db){setSyncDot('offline');return;}
+  // Always queue the order — we'll remove it from queue only after CONFIRMED write
+  queueUnsyncedOrder(order);
+  if(!window._fbReady||!window._db){setSyncDot('offline');updatePendingBanner();return;}
   setSyncDot('saving');
+  const ok=await pushOrderToFirestore(order);
+  if(ok){
+    unqueueOrder(order.id);
+    setSyncDot('ok');
+  } else {
+    setSyncDot('error');
+  }
+  updatePendingBanner();
+}
+
+// Actually attempt the Firestore write and VERIFY it landed by reading it back
+async function pushOrderToFirestore(order){
   try{
-    const {doc,setDoc,serverTimestamp}=window._fb;
-    // save order as its own document so real-time listener catches it
+    const {doc,setDoc,getDoc,serverTimestamp}=window._fb;
     await setDoc(doc(window._db,'pos','config'),{
       products:stripImages(products),pillOrder,combos,orderCounter,productOrder,stockLogs,
       updatedAt:serverTimestamp()
@@ -806,10 +824,58 @@ async function saveOrder(order){
     await setDoc(doc(window._db,'orders',String(order.id)),{
       ...order, syncedAt:serverTimestamp()
     });
-    setSyncDot('ok');
+    // VERIFY — read it back to confirm it actually landed in Firestore
+    const verifySnap=await getDoc(doc(window._db,'orders',String(order.id)));
+    if(!verifySnap.exists()){
+      console.error('Order write verification FAILED for order',order.id,'- doc does not exist after write');
+      return false;
+    }
+    return true;
   }catch(e){
-    console.warn('Firestore order save error:',e);
-    setSyncDot('error');
+    console.error('Firestore order save error for order',order.id,':',e.code||'',e.message||e);
+    return false;
+  }
+}
+
+// ── Pending/unsynced order queue ───────────────────────
+function queueUnsyncedOrder(order){
+  const queue=JSON.parse(localStorage.getItem('cs_pending_orders')||'[]');
+  if(!queue.find(o=>o.id===order.id)){
+    queue.push(order);
+    localStorage.setItem('cs_pending_orders',JSON.stringify(queue));
+  }
+}
+function unqueueOrder(orderId){
+  let queue=JSON.parse(localStorage.getItem('cs_pending_orders')||'[]');
+  queue=queue.filter(o=>o.id!==orderId);
+  localStorage.setItem('cs_pending_orders',JSON.stringify(queue));
+}
+function getPendingOrders(){
+  return JSON.parse(localStorage.getItem('cs_pending_orders')||'[]');
+}
+async function retryPendingOrders(){
+  if(!window._fbReady||!window._db)return;
+  const queue=getPendingOrders();
+  if(!queue.length)return;
+  console.log(`Retrying ${queue.length} unsynced order(s)...`);
+  for(const order of queue){
+    const ok=await pushOrderToFirestore(order);
+    if(ok){
+      unqueueOrder(order.id);
+      console.log('Synced previously-pending order',order.id);
+    }
+  }
+  updatePendingBanner();
+}
+function updatePendingBanner(){
+  const queue=getPendingOrders();
+  const banner=document.getElementById('pending-sync-banner');
+  if(!banner)return;
+  if(queue.length>0){
+    banner.style.display='flex';
+    banner.querySelector('.psb-text').textContent=`⚠️ ${queue.length} order${queue.length>1?'s':''} not yet synced to cloud — kept safe on this device`;
+  } else {
+    banner.style.display='none';
   }
 }
 
@@ -817,7 +883,7 @@ const fm=n=>'$'+Number(n).toFixed(2);
 const fmT=i=>new Date(i).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 const fmD=i=>new Date(i).toLocaleDateString([],{month:'short',day:'numeric'});
 const fmNum=n=>String(n).padStart(2,'0');
-const tod=()=>new Date().toDateString();
+const tod=()=>new Date().toLocaleDateString('en-US',{timeZone:'America/New_York'});
 const gP=id=>products.find(p=>p.id===id);
 // Render emoji OR image (Firebase Storage URL or legacy base64)
 function ei(emoji,size=28,radius){
@@ -1158,7 +1224,7 @@ function renderCombosGrid(){
 }
 
 function updateTodayTotal(){
-  const t=orders.filter(o=>new Date(o.timestamp).toDateString()===tod()).reduce((s,o)=>s+o.total,0);
+  const t=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===tod()).reduce((s,o)=>s+o.total,0);
   document.getElementById('today-total').textContent=fm(t);
 }
 // ── History state ──────────────────────────────────────
@@ -1191,7 +1257,7 @@ function renderHistory(){
 }
 
 function renderStatsGrid(){
-  const tOrd=orders.filter(o=>new Date(o.timestamp).toDateString()===tod());
+  const tOrd=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===tod());
   const tRev=tOrd.reduce((s,o)=>s+o.total,0);
   const allSaved=orders.reduce((s,o)=>s+(o.totalSavings||0),0);
   document.getElementById('stats-grid').innerHTML=`
@@ -1350,7 +1416,7 @@ function orderCardHTML(o){
 }
 
 function renderOrdersList(){
-  const tOrd=orders.filter(o=>new Date(o.timestamp).toDateString()===tod());
+  const tOrd=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===tod());
   let filtered;
   if(hFilter==='today') filtered=tOrd;
   else if(hFilter==='all') filtered=orders;
@@ -1368,7 +1434,7 @@ function delOrder(id){orders=orders.filter(o=>o.id!==id);save();updateTodayTotal
 
 function exportCSV(){
   let filtered;
-  if(hFilter==='today') filtered=orders.filter(o=>new Date(o.timestamp).toDateString()===tod());
+  if(hFilter==='today') filtered=orders.filter(o=>new Date(o.timestamp).toLocaleDateString('en-US',{timeZone:'America/New_York'})===tod());
   else if(hFilter==='date'){const v=document.getElementById('hf-date')?.value;filtered=v?orders.filter(o=>new Date(o.timestamp).toDateString()===new Date(v+'T12:00:00').toDateString()):[];}
   else filtered=orders;
   if(!filtered.length){toast('No orders to export','#64748b');return;}
@@ -2451,6 +2517,7 @@ async function initApp(){
   // Always render immediately from localStorage — never block the UI
   checkNewDay();
   renderCatBar();renderProducts();updateTodayTotal();
+  updatePendingBanner();
   applyLayout();
   window.addEventListener('resize',()=>{applyLayout();renderProducts();});
 
@@ -2504,9 +2571,17 @@ async function initApp(){
       });
 
       setSyncDot('ok');
+      updatePendingBanner();
+      // Retry any orders that failed to sync previously
+      retryPendingOrders();
+      // Keep retrying every 30 seconds while the app is open
+      if(!window._retryInterval){
+        window._retryInterval=setInterval(retryPendingOrders,30000);
+      }
     }catch(e){
       console.warn('Firebase error:',e);
       setSyncDot('error');
+      updatePendingBanner();
     }
   };
 
