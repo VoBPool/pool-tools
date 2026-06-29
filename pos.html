@@ -450,7 +450,7 @@ body{display:flex;flex-direction:column}
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── PASTE YOUR FIREBASE CONFIG HERE ──────────────────────
 const firebaseConfig = {
@@ -468,7 +468,7 @@ try {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   window._db = db;
-  window._fb = { doc, getDoc, setDoc, collection, onSnapshot, writeBatch, serverTimestamp };
+  window._fb = { doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, writeBatch, serverTimestamp };
   window._fbReady = true;
 } catch(e) {
   console.warn('Firebase init failed, running offline:', e);
@@ -779,6 +779,14 @@ let _saveTimer=null;
 function save(){
   saveLocal();
   if(!window._fbReady||!window._db){setSyncDot('offline');return;}
+  // Safety guard: never push an empty or suspiciously tiny product list —
+  // this prevents a device that hasn't finished loading from wiping
+  // everyone else's real menu.
+  if(!products||products.length===0){
+    console.warn('save() blocked: products array is empty, refusing to push to Firestore');
+    setSyncDot('error');
+    return;
+  }
   setSyncDot('saving');
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(async()=>{
@@ -795,6 +803,29 @@ function save(){
       setSyncDot('error');
     }
   },800); // debounce 800ms so rapid changes batch together
+}
+
+// Update or delete a single order in Firestore WITHOUT touching the shared
+// product config. Used for order edits/deletes so a device with stale local
+// product data can never overwrite everyone else's menu.
+async function syncOrderChange(orderId,orderData){
+  saveLocal();
+  if(!window._fbReady||!window._db)return;
+  try{
+    const {doc,setDoc,deleteDoc,serverTimestamp}=window._fb;
+    if(orderData===null){
+      if(window._fb.deleteDoc){
+        await window._fb.deleteDoc(doc(window._db,'orders',String(orderId)));
+      } else {
+        // deleteDoc not imported — fall back to marking deleted
+        await setDoc(doc(window._db,'orders',String(orderId)),{deleted:true,syncedAt:serverTimestamp()});
+      }
+    } else {
+      await setDoc(doc(window._db,'orders',String(orderId)),{...orderData,syncedAt:serverTimestamp()});
+    }
+  }catch(e){
+    console.error('Order sync error:',e.code||'',e.message||e);
+  }
 }
 
 async function saveOrder(order){
@@ -814,13 +845,13 @@ async function saveOrder(order){
 }
 
 // Actually attempt the Firestore write and VERIFY it landed by reading it back
+// IMPORTANT: this ONLY writes the order document. It must NEVER write to
+// pos/config — doing so would let a device with stale/default local data
+// overwrite the shared menu for everyone. Config changes only happen via
+// explicit edits in Inventory (see save() / saveLocal()).
 async function pushOrderToFirestore(order){
   try{
     const {doc,setDoc,getDoc,serverTimestamp}=window._fb;
-    await setDoc(doc(window._db,'pos','config'),{
-      products:stripImages(products),pillOrder,combos,orderCounter,productOrder,stockLogs,
-      updatedAt:serverTimestamp()
-    });
     await setDoc(doc(window._db,'orders',String(order.id)),{
       ...order, syncedAt:serverTimestamp()
     });
@@ -1178,10 +1209,21 @@ function updateEditTotals(){
 }
 function saveEditOrder(payMethod){
   if(!editingOrderId)return;
-  if(!editCart.length){orders=orders.filter(o=>o.id!==editingOrderId);save();closeEditOrder();updateTodayTotal();renderHistory();toast('Order deleted','#64748b');return;}
+  if(!editCart.length){
+    orders=orders.filter(o=>o.id!==editingOrderId);
+    saveLocal();syncOrderChange(editingOrderId,null);
+    closeEditOrder();updateTodayTotal();renderHistory();toast('Order deleted','#64748b');return;
+  }
   const tot=editCart.reduce((s,i)=>s+i.price*i.qty,0);
-  orders=orders.map(o=>{if(o.id!==editingOrderId)return o;return{...o,items:editCart.map(i=>({...i})),subtotal:tot,totalSavings:0,discounts:[],total:tot,payMethod};});
-  save();closeEditOrder();updateTodayTotal();renderHistory();
+  let updatedOrder=null;
+  orders=orders.map(o=>{
+    if(o.id!==editingOrderId)return o;
+    updatedOrder={...o,items:editCart.map(i=>({...i})),subtotal:tot,totalSavings:0,discounts:[],total:tot,payMethod};
+    return updatedOrder;
+  });
+  saveLocal();
+  if(updatedOrder)syncOrderChange(editingOrderId,updatedOrder);
+  closeEditOrder();updateTodayTotal();renderHistory();
   toast('✅ Order updated!');
 }
 
@@ -1430,7 +1472,7 @@ function renderOrdersList(){
   list.innerHTML=filtered.map(o=>orderCardHTML(o)).join('');
 }
 
-function delOrder(id){orders=orders.filter(o=>o.id!==id);save();updateTodayTotal();renderHistory();}
+function delOrder(id){orders=orders.filter(o=>o.id!==id);saveLocal();syncOrderChange(id,null);updateTodayTotal();renderHistory();}
 
 function exportCSV(){
   let filtered;
